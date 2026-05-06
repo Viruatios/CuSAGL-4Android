@@ -1,0 +1,23 @@
+{
+	"manifest_version": 1,
+	"name": "原琴·键盘谱自动演奏",
+	"version": "0.1.10d",
+	"bgi_version": "0.59.1",
+	"description": "A simplified automatic Genshin Lyre based on AutoYuanQin by  提瓦特钓鱼玳师 & 半江残秋.",
+	"authors": [
+		{
+			"name": "提瓦特钓鱼玳师",
+			"links": "https://github.com/Hijiwos"
+		},
+		{
+			"name": "半江残秋",
+			"links": "https://github.com/TheHeartFickle"
+		},
+		{
+			"name": "CuLoo",
+			"links": "https://github.com/viruatios"
+		}
+	],
+	"settings_ui": "settings.json",
+	"main": "main.js"
+}
