@@ -10,13 +10,13 @@
 
 ## 核心实现机制映射
 
-| PC端 (Better GI 宿主环境)                           | Android 端 (我们即将打造的新宿主环境)            | 说明                                                                                                                                 |
-| --------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **窗体UI控件**                                      | `WindowManager` 悬浮窗                           | 用于在原神游戏画面之上悬浮显示“播放/暂停”面板。需申请 `SYSTEM_ALERT_WINDOW` 权限。                                                   |
-| **键盘按键模拟** (`PostMessage.keyDown`)            | `AccessibilityService.dispatchGesture`           | 无障碍手势服务，可不依赖 Root 权限直接在屏幕固定坐标 (X, Y) 模拟手指按下和抬起。需申请 `BIND_ACCESSIBILITY_SERVICE` 并引导用户开启。 |
-| **JS 执行环境** (`ClearScript`)                     | `QuickJS-Android` (由 CashApp 提供)              | 在 App 内部执行 `main.js` 并保持 V8 / ES6 兼容。                                                                                     |
-| **文件读写 API** (`file.readTextSync`, `System.IO`) | `Context.assets` (读取乐谱) / Kotlin 内部存储 IO | 将原项目 `assets/score_file/` 放入 Android `src/main/assets` 目录，并将原生 IO 桥接到 JS 环境暴露同名对象。                          |
-| **全局 `sleep()` 函数**                             | Kotlin Coroutines `suspend` / QuickJS 异步桥接   | 提供精确的微秒/毫秒级等待能力，确保弹琴不断流。                                                                                      |
+| 核心实现机制 | PC端 (Better GI 宿主环境)                           | Android 端 (我们即将打造的新宿主环境)            | 说明                                                                                                                                 |
+| -- | --------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **窗体UI控件** | **窗体UI控件**                                      | `WindowManager` 悬浮窗                           | 用于在原神游戏画面之上悬浮显示“播放/暂停”面板。需申请 `SYSTEM_ALERT_WINDOW` 权限。                                                   |
+| **键盘按键模拟** | **键盘按键模拟** (`PostMessage.keyDown`)            | `AccessibilityService.dispatchGesture`           | 无障碍手势服务，可不依赖 Root 权限直接在屏幕固定坐标 (X, Y)模拟。 |
+| **JS 执行环境** | **JS 执行环境** (`ClearScript`)                     | `QuickJS-Android` (由 CashApp 提供)              | 在 App 内部执行 `main.js` 并保持 V8 / ES6 兼容。                                                                                     |
+| **文件/日志 API** | **文件读写及日志集成** | 绑定自定义 `file` 和 `log` 对象到 QuickJS 环境 | 脚本目录已在 `app/src/main/assets/scripts/CuSimpAutoGenshinLyre/`，我们需封装混合了 AssetManager 和内部存储的 JS 桥接，支持读取和持久化写入 (如 `settings.json` 和 cache)。|
+| **定时器 API** | **全局 `sleep(ms)` 函数**                             | Kotlin Coroutines `suspend` / QuickJS 异步桥接   | 提供精确的微秒/毫秒级等待能力，确保弹琴不断流。                                                                                      |
 
 ---
 
@@ -45,18 +45,12 @@
 **目标**：用 JS 触发原生操作。
 
 1. 导入库 `implementation("app.cash.quickjs:quickjs-android:xxx")`。
-2. 将 `main.js` 和部分 `score_file/*.json` 存入 `assets`。
-3. **关键操作：注入 API**。
-   ```kotlin
-   // 在 Kotlin 中定义接口
-   interface BetterGIMock {
-      fun nativeKeyDown(key: String)
-      fun nativeKeyUp(key: String)
-      fun readTextSync(path: String): String
-   }
-   // 将实现类绑定给 QuickJS，暴露全局变量
-   ```
-4. 让 `main.js` 中的 `new PostMessage().keyDown('Q')` 实际调用映射好的 Kotlin 方法，Kotlin 方法再根据预先设定的 `{ "Q": Point(200, 300) }` 坐标矩阵，调用无障碍打点。
+2. **关键操作：注入并映射 API**。
+   需要桥接脚本使用的全局变量至 Kotlin 对象：
+   - `log`: `error/info/warn/debug` -> 映射到 `android.util.Log`。
+   - `file`: `isFolder/readPathSync/readTextSync/...` -> 映射到 Asset 与内部存储。
+   - `PostMessage`: 提供模拟键盘功能的桥接 (`keyDown(k)`, `keyUp(k)`)。
+   - `sleep(ms)`: 全局异步睡眠，支持 Promise。
 
 ### 阶段 4：异步与时间轴适配
 

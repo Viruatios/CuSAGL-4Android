@@ -3,6 +3,7 @@
 ## Project Context
 
 The user is migrating a Windows-based BetterGI JavaScript macro (for Genshin Impact Lyre Auto-playing) to a pure Android native application using Kotlin. The target architecture is "Android Native App + QuickJS Engine".
+The original scripts are placed under `app/src/main/assets/scripts/CuSimpAutoGenshinLyre/`, including `main.js`, `manifest.json`, and directories like `assets/score_file/`.
 
 ## Core Architecture
 
@@ -16,10 +17,12 @@ The user is migrating a Windows-based BetterGI JavaScript macro (for Genshin Imp
 1. **DO NOT Rewrite JS Business Logic (Unless necessary)**: Keep the parsing logic, timeline prebaking, and the Jitter/Sleep synchronization inside `main.js` untouched as much as possible to ensure highest code reusability.
 2. **Focus on Bridging**: Whenever the user asks to implement the script execution, prioritize writing the Kotlin-JS Bridge.
    You need to mock or map these specific BetterGI APIs injected in JS to Kotlin functions:
-   - `file.readTextSync`, `file.isFolder`, `file.readPathSync` -> Map to Android `AssetManager` or App-specific `Context.filesDir` I/O.
-   - `System.IO...` fallback APIs -> Replace with standard Android file I/O or expose a custom Kotlin IO object.
-   - `class PostMessage { keyDown(k); keyUp(k) }` -> Must be provided to the QuickJS context. Map `keyDown(k)` to `AccessibilityService` simulated screen finger down at specific mapped coordinates, and `keyUp` to finger release.
-   - `sleep(ms)` -> BetterGI provides a global `sleep` that returns a Promise. QuickJS requires an asynchronous bridge or using Kotlin Coroutines `delay()` exposed as a JS Promise.
+   - Global `sleep` function: BetterGI provides a global `sleep(ms)` returning a Promise. QuickJS requires Kotlin Coroutines suspended functions or JS-exposed Promise wrapping.
+   - Global `file` object: `isFolder(path)`, `readPathSync(dir)`, `readTextSync(path)`, `writeTextSync(path, text)`, `renamePathSync(oldPath, newPath)`. These paths are typically relative to the script roots. Our Kotlin bridge needs to combine Android `AssetManager` (for static JSON configs) with App `Context.filesDir` (for writable files like `settings.json` and cache).
+   - Global `log` object: `error(msg)`, `info(msg)`, `warn(msg)`, `debug(msg)`. Map these to Android's `Log.e`, `Log.i`, etc.
+   - Global `PostMessage` class logic: JS does `const postMessage = new PostMessage(); postMessage.keyDown(k)`. We can expose a Kotlin `postMessage` global object acting similarly. Map `keyDown(k)` to `AccessibilityService` simulated screen finger down at specific mapped coordinates.
+   - Note: The JS script gracefully handles missing `System.IO` if `typeof System === 'undefined'`, so bridging `System.IO` is NOT strictly required as long as `file` object works perfectly.
+
 3. **Coordinate Mapping (Keyboard -> Screen)**: The JS code passes string keys (like `'Q'`, `'W'`, `'E'`). You must help the user implement a coordinate mapping matrix in Kotlin based on standard 16:9 screen ratios for Genshin Impact's lyre UI.
 4. **Android Setup First**: If the user is starting fresh, guide them through setting up `AndroidManifest.xml` (permissions for `SYSTEM_ALERT_WINDOW` and `BIND_ACCESSIBILITY_SERVICE`), `accessibility_service_config.xml`, and the barebones MVP (Minimum Viable Product).
 
