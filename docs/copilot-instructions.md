@@ -9,21 +9,20 @@ The original scripts are placed under `app/src/main/assets/scripts/CuSimpAutoGen
 
 - **Language**: Kotlin (for Android Native) + standard JavaScript (ES6+ via QuickJS engine).
 - **UI & Controls**: `WindowManager` (System Alert Window / 悬浮窗) to display the controller overlay on top of the Genshin Impact game.
-- **Execution Engine**: `QuickJS` (or Duktape) embedded in Android to execute the existing `main.js` and parse `score_file` (JSON) assets.
-- **Input Simulation**: `AccessibilityService` (无障碍服务) with `dispatchGesture` API to simulate exact (X, Y) screen touch coordinates (replacing PC keyboard inputs).
+- **Execution Engine**: `QuickJS` embedded in Android, used **strictly for pre-processing**. It executes `main.js` to read score files, manage cache, apply custom settings mapping, and generate the optimal playback timeline array.
+- **Input Simulation & Playback**: Kotlin Coroutines + `AccessibilityService`. The Android layer takes the fully generated `mergedTimeline` output from JS, controls the high-precision delay loop natively, and dispatches multi-touch gestures to exactly simulate logic.
 
 ## Migration Guidelines & Rules for Copilot
 
-1. **DO NOT Rewrite JS Business Logic (Unless necessary)**: Keep the parsing logic, timeline prebaking, and the Jitter/Sleep synchronization inside `main.js` untouched as much as possible to ensure highest code reusability.
-2. **Focus on Bridging**: Whenever the user asks to implement the script execution, prioritize writing the Kotlin-JS Bridge.
+1. **Hybrid Architecture (JS Pre-processing -> Kotlin Playback)**: Keep the parsing logic and timeline prebaking in `main.js` untouched mostly. However, **remove or explicitly bypass the original JS `playCachedTimeline` runtime player**. After generating `mergedTimeline`, JS must hand the data over to the Kotlin boundary and complete its lifecycle to free CPU overhead.
+2. **Focus on Bridging**: Whenever the user asks to implement the script execution, prioritize writing the Kotlin->JS Bridge to prep the environment.
    You need to mock or map these specific BetterGI APIs injected in JS to Kotlin functions:
-   - Global `sleep` function: BetterGI provides a global `sleep(ms)` returning a Promise. QuickJS requires Kotlin Coroutines suspended functions or JS-exposed Promise wrapping.
-   - Global `file` object: `isFolder(path)`, `readPathSync(dir)`, `readTextSync(path)`, `writeTextSync(path, text)`, `renamePathSync(oldPath, newPath)`. These paths are typically relative to the script roots. Our Kotlin bridge needs to combine Android `AssetManager` (for static JSON configs) with App `Context.filesDir` (for writable files like `settings.json` and cache).
+   - Global `file` object: `isFolder(path)`, `readPathSync(dir)`, `readTextSync(path)`, `writeTextSync(path, text)`, `renamePathSync(oldPath, newPath)`. These paths are typically relative to the script roots. Our Kotlin bridge needs to combine Android `AssetManager` (for static JSON configs) with App `Context.filesDir` (for writable `settings.json` and cache).
    - Global `log` object: `error(msg)`, `info(msg)`, `warn(msg)`, `debug(msg)`. Map these to Android's `Log.e`, `Log.i`, etc.
-   - Global `PostMessage` class logic: JS does `const postMessage = new PostMessage(); postMessage.keyDown(k)`. We can expose a Kotlin `postMessage` global object acting similarly. Map `keyDown(k)` to `AccessibilityService` simulated screen finger down at specific mapped coordinates.
-   - Note: The JS script gracefully handles missing `System.IO` if `typeof System === 'undefined'`, so bridging `System.IO` is NOT strictly required as long as `file` object works perfectly.
+   - **Native Bridge Export**: Inject a custom Kotlin object into JS (e.g., `NativeBridge.submitTimeline(timelineJson)`) so JS can pass its artifacts to Android.
+   - Global `sleep` / `PostMessage`: In the new Hybrid system, manual low-level mocking of `sleep` or keystrokes during playback inside JS is no longer necessary as the playback responsibility is wholly moved to Kotlin. Wait/Delay logic during script boot can be faked or ignored as long as it doesn't break initialization.
 
-3. **Coordinate Mapping (Keyboard -> Screen)**: The JS code passes string keys (like `'Q'`, `'W'`, `'E'`). You must help the user implement a coordinate mapping matrix in Kotlin based on standard 16:9 screen ratios for Genshin Impact's lyre UI.
+3. **Coordinate Mapping (Keyboard -> Screen)**: The JS code evaluates strings like `'Q'`, `'W'`, `'E'`. You must help the user implement a coordinate lookup in Kotlin based on standard 16:9 screen ratios for Genshin Impact's lyre UI.
 4. **Android Setup First**: If the user is starting fresh, guide them through setting up `AndroidManifest.xml` (permissions for `SYSTEM_ALERT_WINDOW` and `BIND_ACCESSIBILITY_SERVICE`), `accessibility_service_config.xml`, and the barebones MVP (Minimum Viable Product).
 
 ## When generating Android code

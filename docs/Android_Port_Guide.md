@@ -2,9 +2,11 @@
 
 本指南针对无 Android 开发经验的开发者，提供将基于 BetterGI (Windows) 的原神自动弹琴 JS 脚本移植至 Android 平台的完整路线图。
 
-## 方案简述：Android (Kotlin) + 悬浮窗 + 无障碍服务 + QuickJS
+## 方案简述：混合架构 (JS 预处理 + Kotlin 原生演奏)
 
-现有系统在 Windows 平台上使用 C# 注入的 BetterGI 宿主环境提供底层文件 IO 与键盘 API。在 Android 端，我们将通过开发一个原生 App，结合跨应用 UI（悬浮窗）、屏幕触控模拟（无障碍服务）、以及嵌入式脚本动态解析（QuickJS），构建一个全新的宿主运行环境，确保绝大部分 `main.js` 代码实现**零修改复用**。
+为了最大化性能并保证跨端运行极高的定时精度，我们采用**混合架构**：
+1. **JS 层预处理 (QuickJS)**：复用 `main.js` 中的曲谱解析、和弦合并及生成 `mergedTimeline` 缓存的逻辑。当按键指令时间轴对象数组在内存中生成完毕后，将其直接通过桥接接口移交回 Kotlin 层，JS 脚本即完成计算使命。
+2. **Kotlin 原生层 (执行器)**：Kotlin 端完全接管并替代原 JS 中的 `playCachedTimeline` 运行时扫描播放器。原生协程利用 Android 底层高精度时钟（`System.nanoTime`）遍历时间轴数组，并通过无障碍服务高频、精准地执行屏幕并发点击操作。消除跨语言高频通信带来的延迟与抖动。
 
 ---
 
@@ -13,10 +15,10 @@
 | 核心实现机制 | PC端 (Better GI 宿主环境)                           | Android 端 (我们即将打造的新宿主环境)            | 说明                                                                                                                                 |
 | -- | --------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | **窗体UI控件** | **窗体UI控件**                                      | `WindowManager` 悬浮窗                           | 用于在原神游戏画面之上悬浮显示“播放/暂停”面板。需申请 `SYSTEM_ALERT_WINDOW` 权限。                                                   |
-| **键盘按键模拟** | **键盘按键模拟** (`PostMessage.keyDown`)            | `AccessibilityService.dispatchGesture`           | 无障碍手势服务，可不依赖 Root 权限直接在屏幕固定坐标 (X, Y)模拟。 |
-| **JS 执行环境** | **JS 执行环境** (`ClearScript`)                     | `QuickJS-Android` (由 CashApp 提供)              | 在 App 内部执行 `main.js` 并保持 V8 / ES6 兼容。                                                                                     |
-| **文件/日志 API** | **文件读写及日志集成** | 绑定自定义 `file` 和 `log` 对象到 QuickJS 环境 | 脚本目录已在 `app/src/main/assets/scripts/CuSimpAutoGenshinLyre/`，我们需封装混合了 AssetManager 和内部存储的 JS 桥接，支持读取和持久化写入 (如 `settings.json` 和 cache)。|
-| **定时器 API** | **全局 `sleep(ms)` 函数**                             | Kotlin Coroutines `suspend` / QuickJS 异步桥接   | 提供精确的微秒/毫秒级等待能力，确保弹琴不断流。                                                                                      |
+| **键盘按键模拟** | **键盘按键模拟** (`PostMessage.keyDown`)            | `AccessibilityService.dispatchGesture`           | 无障碍手势服务，由 Kotlin 执行器直接调度，不再直接暴露给 JS。 |
+| **JS 预处理环境** | **JS 执行环境** (`ClearScript`)                     | `QuickJS-Android` (由 CashApp 提供)              | 仅用于在准备阶段执行 `main.js`，读取曲谱并完成时间轴矩阵计算，算出结果数组后立即交还给 Kotlin 宿主。                                                |
+| **文件/日志 API** | **文件读写及日志集成** | 绑定自定义 `file` 和 `log` 对象到 QuickJS 环境 | 封装混合 AssetManager 和内部存储的 JS 桥接，保证 JS 可以完整顺畅地读取乐谱、读取/修改 `settings.json` 并持久化缓存。|
+| **原生播放调度** | **JS 全局 `sleep` 与自旋循环**                      | Kotlin Coroutines + `System.nanoTime()` 调度机制 | 完全由 Kotlin 接管原本脚本中基于自旋 (`while`) 和 `sleep` 的指令调度派发，消除跨 JNI 调用的高频性能开销与 GC 停顿影响。                                   |
 
 ---
 
@@ -42,21 +44,20 @@
 
 ### 阶段 3：建立 JS 与 Kotlin 桥梁 (QuickJS Integration)
 
-**目标**：用 JS 触发原生操作。
+**目标**：配置 JS 环境生成数据并回传。
 
 1. 导入库 `implementation("app.cash.quickjs:quickjs-android:xxx")`。
 2. **关键操作：注入并映射 API**。
    需要桥接脚本使用的全局变量至 Kotlin 对象：
    - `log`: `error/info/warn/debug` -> 映射到 `android.util.Log`。
    - `file`: `isFolder/readPathSync/readTextSync/...` -> 映射到 Asset 与内部存储。
-   - `PostMessage`: 提供模拟键盘功能的桥接 (`keyDown(k)`, `keyUp(k)`)。
-   - `sleep(ms)`: 全局异步睡眠，支持 Promise。
+3. **改造 `main.js` 回传机制**：修改原有 JS 播放循环，新增如 `AndroidPlayBridge.submitTimeline(...)` 方法，将 `mergedTimeline` 数组直接序列化后回传到 Kotlin。
 
-### 阶段 4：异步与时间轴适配
+### 阶段 4：Kotlin 高精度时间轴适配与播放
 
-1. `main.js` 依赖 `async/await` 和 `sleep` 进行演奏。
-2. 在 Android 侧，需要正确处理 JS Promise，或者在 Kotlin 提供阻塞函数并允许 JS 调度。
-3. 调整和校验“PC 键盘”和“Android 屏幕虚拟琴键”之间的矩阵坐标，考虑刘海屏偏移及全面屏长宽比。
+1. 在 Android 侧反序列化 JS 提交的 `mergedTimeline` 参数大对象。
+2. 在 Kotlin 内部编写高精度扫描播放器（采用协程 `delay` 及高精度纳秒时间自旋补偿机制）。
+3. 调整和校验“PC 键盘”和“Android 屏幕虚拟琴键”之间的矩阵坐标，利用 `AccessibilityService` 的连续执行或多指手势实现和弦的打点派发。
 
 ---
 
@@ -88,7 +89,7 @@
 实现申请 `SYSTEM_ALERT_WINDOW` 权限的逻辑，并使用 Compose 与 `WindowManager` 结合提供一个小型的悬浮播放暂停按钮，作为调试测试入口。
 
 ### 第 4 步: 整合并暴露 Kotlin API 到 QuickJS
-在 App 内部创建 QuickJS 运行环境，注入文件读写与无障碍触发相关的 Mock API。调试确保能够直接运行 `main.js`。
+在 App 内部创建 QuickJS 运行环境，注入文件读写 API (`file`)、日志 API (`log`) 与播放动作移交 API。修改 `main.js` 屏蔽其默认播放行为并使其执行后能向 Kotlin 发送完整的预处理结果。
 
-### 第 5 步: 进行坐标映射与性能优化
-通过配置获取不同设备的屏幕比例，实现按键名如 'Q' 到屏幕 XY 的坐标映射算法。调试并发逻辑，避免和弦失效或卡顿。
+### 第 5 步: Kotlin 原生播放与坐标映射验证
+通过配置获取不同设备的屏幕比例，实现按键名如 'Q' 到屏幕 XY 的坐标映射算法。在 Kotlin 端实现高精度执行调度器，验证单音、琶音与并发和弦在原神内的执行精准度。
