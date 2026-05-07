@@ -22,7 +22,7 @@ The original scripts are placed under `app/src/main/assets/scripts/CuSimpAutoGen
    - **Native Bridge Export**: Inject a custom Kotlin object into JS (e.g., `NativeBridge.submitTimeline(timelineJson)`) so JS can pass its artifacts to Android.
    - Global `sleep` / `PostMessage`: In the new Hybrid system, manual low-level mocking of `sleep` or keystrokes during playback inside JS is no longer necessary as the playback responsibility is wholly moved to Kotlin. Wait/Delay logic during script boot can be faked or ignored as long as it doesn't break initialization.
 
-3. **Coordinate Mapping (Keyboard -> Screen)**: The JS code evaluates strings like `'Q'`, `'W'`, `'E'`. You must help the user implement a coordinate lookup in Kotlin based on standard 16:9 screen ratios for Genshin Impact's lyre UI.
+3. **Coordinate Mapping (Keyboard -> Screen)**: The JS code outputs key characters like `'Q'`, `'W'`, `'E'`. The coordinate transformation logic has already been sketched out in `TimelinePlayer.kt` using a `1920x1080` base resolution. It automatically handles scaling with center-horizontal and bottom-vertical alignments. You should strictly use `TimelinePlayer.kt` when mapping keys, and help the user fill in the `TODO` base dictionary once 1920x1080 raw coordinates are provided.
 4. **Android Setup First**: If the user is starting fresh, guide them through setting up `AndroidManifest.xml` (permissions for `SYSTEM_ALERT_WINDOW` and `BIND_ACCESSIBILITY_SERVICE`), `accessibility_service_config.xml`, and the barebones MVP (Minimum Viable Product).
 
 ## When generating Android code
