@@ -13,6 +13,31 @@ class TimelinePlayer {
         // 基准分辨率
         private const val W_BASE = 1920f
         private const val H_BASE = 1080f
+
+        // 1920x1080 分辨率下的基准琴键坐标表
+        private val BASE_COORDINATES = mapOf(
+            'Q' to PointF(455f, 670f),
+            'W' to PointF(625f, 670f),
+            'E' to PointF(790f, 670f),
+            'R' to PointF(960f, 670f),
+            'T' to PointF(1125f, 670f),
+            'Y' to PointF(1295f, 670f),
+            'U' to PointF(1460f, 670f),
+            'A' to PointF(455f, 805f),
+            'S' to PointF(625f, 805f),
+            'D' to PointF(790f, 805f),
+            'F' to PointF(960f, 805f),
+            'G' to PointF(1125f, 805f),
+            'H' to PointF(1295f, 805f),
+            'J' to PointF(1460f, 805f),
+            'Z' to PointF(455f, 940f),
+            'X' to PointF(625f, 940f),
+            'C' to PointF(790f, 940f),
+            'V' to PointF(960f, 940f),
+            'B' to PointF(1125f, 940f),
+            'N' to PointF(1295f, 940f),
+            'M' to PointF(1460f, 940f)
+        )
     }
 
     /**
@@ -25,9 +50,9 @@ class TimelinePlayer {
      * @return 映射到当前屏幕的实际像素坐标 PointF
      */
     fun getMappedCoordinate(targetWidth: Int, targetHeight: Int, keyName: Char): PointF {
-        // TODO: 处于 1920 * 1080 基准分辨率下时，各个按键对应的原始坐标将在后续补充，当前阶段暂时使用TODO注释留空。
-        val xBase = 0f
-        val yBase = 0f
+        val basePoint = BASE_COORDINATES[keyName.uppercaseChar()] ?: return PointF(0f, 0f)
+        val xBase = basePoint.x
+        val yBase = basePoint.y
 
         // 计算缩放比：取宽和高差异更大的一边
         val scale = max(targetWidth / W_BASE, targetHeight / H_BASE)
@@ -41,4 +66,3 @@ class TimelinePlayer {
         return PointF(xTarget, yTarget)
     }
 }
-
