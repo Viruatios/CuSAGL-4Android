@@ -1,6 +1,8 @@
 package com.culoo.cusagl_4android
 
 import android.graphics.PointF
+import android.graphics.Path
+import android.accessibilityservice.GestureDescription
 import kotlin.math.max
 
 /* 运行时时间轴扫描播放器
@@ -38,6 +40,19 @@ class TimelinePlayer {
             'N' to PointF(1295f, 940f),
             'M' to PointF(1460f, 940f)
         )
+    }
+
+    /**
+     * 在屏幕上执行确切的点击手势
+     */
+    fun clickAt(x: Float, y: Float, duration: Long) {
+        val clickPath = Path().apply {
+            moveTo(x, y)
+        }
+        val stroke = GestureDescription.StrokeDescription(clickPath, 0, duration)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+
+        CuSAGLAccessibilityService.instance?.dispatchGesture(gesture, null, null)
     }
 
     /**
