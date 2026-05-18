@@ -1,6 +1,9 @@
 package com.culoo.cusagl_4android
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +19,16 @@ import com.culoo.cusagl_4android.ui.theme.CuSAGL4AndroidTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 检查并请求悬浮窗权限
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+        }
+
         enableEdgeToEdge()
         setContent {
             CuSAGL4AndroidTheme {
