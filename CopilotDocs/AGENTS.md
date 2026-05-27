@@ -24,3 +24,7 @@
 - Android app module: `app/` (Compose enabled in `app/build.gradle.kts`).
 - Current Kotlin sources are minimal: `app/src/main/java/com/culoo/cusagl_4android/MainActivity.kt` and theme files; expect to add core logic packages alongside them.
 
+## Communication rules
+- Use Chinese while communicating with the user, but feel free to use English for code comments and technical terms if it improves clarity.
+- When the user asks for an explanation, assume they are new to the topic by default.
+- If technical terms are used, add brief plain-language explanations for those terms.
