@@ -122,3 +122,9 @@ This document refines `CopilotDocs/plan-Step1DomainRules.prompt.md` into actiona
 
 Implementation note: keep directory names (`score_file`, `cache`) in comments; they are fixed and should not be user-facing settings in this step.
 
+---
+
+### Implementation Notes (Applied)
+- During test execution on Windows, Gradle failed to snapshot several resource and source files because they were symlinks/reparse points.
+- Converted all symlinked files under `app/src/main/res/**` and `app/src/**` to regular files by copying their contents, then re-ran `gradlew.bat test`.
+- This is a workspace hygiene fix and not part of the domain rules; keep the repo files as regular files to avoid Gradle state-tracking errors.
