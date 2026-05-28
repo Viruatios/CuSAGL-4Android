@@ -32,9 +32,9 @@
 ## Developer workflow notes
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.
 
-## Communication rules
+## Communication and rules
 - Use Chinese while communicating with the user; English is fine for code comments and technical terms when clearer.
-- Assume the user is new to the topic when explanations are requested and briefly define technical terms.
+- Write a brief summary of what you did after completing a plan, and update at `README.md ##开发节点的记录`.
 
 ## Key references
 - Android plan and touch mapping: `README.md`.
