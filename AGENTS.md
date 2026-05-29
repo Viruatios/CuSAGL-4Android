@@ -33,8 +33,11 @@
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.
 
 ## Communication and rules
-- Use Chinese while communicating with the user; English is fine for code comments and technical terms when clearer.
-- Write a brief summary of what you did after completing a plan, and update at `README.md ##开发节点的记录`.
+- Use Chinese while communicating with the user.
+- - `X` is a placeholder for the current step number (e.g., `step1`, `step2`); update as needed when new steps are added.
+- For each stepX, focus on the current requirement and avoid scope creep; if new requirements arise, note them down in `CopilotDocs/stepX/plan.md` for future implementation.
+- Before starting a new stepX, check `CopilotDocs/step(X-1)/plan.md` for any relevant context or pending requirements that may affect the new step.
+- Write a brief summary of what you did after completing each stepX, and update at `README.md ##开发节点的记录`.
 
 ## Key references
 - Android plan and touch mapping: `README.md`.
