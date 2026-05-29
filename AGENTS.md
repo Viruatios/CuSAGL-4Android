@@ -35,9 +35,9 @@
 ## Communication and rules
 - Use Chinese while communicating with the user.
 - - `X` is a placeholder for the current step number (e.g., `step1`, `step2`); update as needed when new steps are added.
-- For each stepX, focus on the current requirement and avoid scope creep; if new requirements arise, note them down in `CopilotDocs/stepX/plan.md` for future implementation.
+- For each stepX, write down `CopilotDocs/stepX/plan.md` first to focus on the current requirement and avoid scope creep; if new requirements arise, note them down in `CopilotDocs/stepX/plan.md` for future implementation.
 - Before starting a new stepX, check `CopilotDocs/step(X-1)/plan.md` for any relevant context or pending requirements that may affect the new step.
-- Write a brief summary of what you did after completing each stepX, and update at `README.md ##开发节点的记录`.
+- Write a brief summary of what you did after completing  the implementation of each stepX, and update at `README.md ##开发节点的记录`.
 
 ## Key references
 - Android plan and touch mapping: `README.md`.
