@@ -34,6 +34,7 @@
 - Core unit tests already exist in `app/src/test/java/com/culoo/cusagl_4android/core/ScoreParserTest.kt`.
 - Runtime playback injects dependencies via `TimeSource`, `Sleeper`, and `TouchInjector` to keep core logic platform-agnostic (see `RuntimePlaybackInterfaces.kt`).
 - Cache loading for playback goes through `ScoreCacheProvider`, which builds cache on demand when missing (see `RuntimePlaybackInterfaces.kt`).
+- Core logging stays platform-agnostic via `Logger`/`LogTags` in `app/src/main/java/com/culoo/cusagl_4android/core/Logger.kt` (e.g., `ScoreStorage.listAndNormalizeScores` accepts a `Logger`).
 
 ## Developer workflow notes
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.
@@ -42,7 +43,7 @@
 - Use Chinese while communicating with the user.
 - - `X` is a placeholder for the current step number (e.g., `step1`, `step2`); update as needed when new steps are added.
 - For each stepX, write down `CopilotDocs/stepX/plan.md` first to focus on the current requirement and avoid scope creep; if new requirements arise, note them down in `CopilotDocs/stepX/plan.md` for future implementation.
-- Before starting a new stepX, check the `CopilotDocs/step(X-N)/plan.md` of those previous steps for any relevant context or pending requirements that may affect the new step.
+- Before starting a new stepX, read the `CopilotDocs/GenetalPlan.md` to confirm what to do. Then check the `CopilotDocs/step(X-N)/plan.md` of those previous steps for any relevant context or pending requirements that may affect the new step.
 - Write a brief summary of what you did after completing  the implementation of each stepX, and update at `README.md ##开发节点的记录`.
 
 ## Key references
