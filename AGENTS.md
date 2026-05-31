@@ -5,6 +5,7 @@
 - Single Android app module in `app/` using Jetpack Compose; current UI is a placeholder in `app/src/main/java/com/culoo/cusagl_4android/MainActivity.kt`.
 - Core Kotlin logic now lives under `app/src/main/java/com/culoo/cusagl_4android/core/` (score parsing, storage/cache, timeline prebake).
 - Runtime playback scheduling is implemented in core (`RuntimePlaybackEngine`, `PlaybackConfig`, `RuntimePlaybackInterfaces`).
+- Touch injection and accessibility service wiring live under `app/src/main/java/com/culoo/cusagl_4android/accessibility/` (`LyreAccessibilityService`, `AccessibilityTouchInjector`, `TouchCoordinateMapper`).
 
 ## Architecture and data flow
 - Two-layer approach: port parsing/processing into pure Kotlin first, then bind to Compose UI and Android services later (see `README.md`).
@@ -12,6 +13,7 @@
 - Typical pipeline: score JSON -> Kotlin `data class` models -> preprocess timeline / cache -> playback scheduler.
 - Implemented core pipeline: `ScoreParser` -> `ScoreStorage.buildCache` -> `TimelinePrebaker.prebakeTimeline` (see `app/src/main/java/com/culoo/cusagl_4android/core/`).
 - Runtime playback uses cache -> `RuntimePlaybackEngine` -> `TouchInjector` with a `CacheProvider` (see `app/src/main/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngine.kt`).
+- Android touch injection path: `RuntimePlaybackEngine` -> `TouchInjector` -> `AccessibilityTouchInjector` -> `AccessibilityServiceBridge`/`LyreAccessibilityService` (gesture dispatch).
 
 ## Domain rules (music playback)
 - Playback must be serial by "basic unit" (not concurrent note timers) to avoid timing drift and key-up races; see v0.1.1 in `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
@@ -24,6 +26,7 @@
 - Use the 1920x1080 baseline with `Scale = max(W/1920, H/1080)`, X centered, Y bottom-aligned (see appendix in `README.md`).
 - Base key coordinates are listed in `README.md` (e.g., `Q -> PointF(455f, 670f)`, `M -> PointF(1460f, 940f)`) and should be treated as canonical input positions.
 - Base key coordinates are mirrored in `app/src/main/java/com/culoo/cusagl_4android/core/KeyLayout.kt` as `KeyLayout.baseCoordinates` and `KeyLayout.allKeys`.
+- Runtime mapping uses `TouchCoordinateMapper` in `app/src/main/java/com/culoo/cusagl_4android/accessibility/TouchCoordinateMapper.kt` (WindowManager `currentWindowMetrics` + cached mapping).
 
 ## Project-specific conventions
 - JSON-heavy inputs should be modeled as Kotlin `data class` types before translating logic (explicitly recommended in `README.md`).
@@ -38,6 +41,7 @@
 
 ## Developer workflow notes
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.
+- Accessibility service config lives in `app/src/main/res/xml/accessibility_service_config.xml` and is declared in `app/src/main/AndroidManifest.xml`.
 
 ## Communication and rules
 - Use Chinese while communicating with the user.
