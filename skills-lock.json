@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "android-native-dev": {
+      "source": "MiniMax-AI/skills",
+      "sourceType": "github",
+      "skillPath": "skills/android-native-dev/SKILL.md",
+      "computedHash": "d55826acd91b9eadee90d9235826f0180e5f611680140307cdf728150ac74bef"
+    }
+  }
+}

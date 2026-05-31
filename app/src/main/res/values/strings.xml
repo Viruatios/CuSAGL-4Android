@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">CuSAGL-4Android</string>
+    <string name="accessibility_service_description">CuSAGL 需要开启辅助功能，来使用触控注入服务点击屏幕，从而实现自动化演奏。</string>
 </resources>

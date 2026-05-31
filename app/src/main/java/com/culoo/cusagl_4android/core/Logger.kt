@@ -10,6 +10,7 @@ object LogTags {
     const val PARSE_FAIL = "PARSE_FAIL"
     const val FILE_MISSING = "FILE_MISSING"
     const val CACHE_INVALID = "CACHE_INVALID"
+    const val ACCESSIBILITY = "ACCESSIBILITY"
 }
 
 object DefaultLogger : Logger {

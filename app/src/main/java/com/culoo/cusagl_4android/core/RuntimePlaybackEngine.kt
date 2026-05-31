@@ -171,9 +171,9 @@ class RuntimePlaybackEngine(
             if (stopRequested) return false
 
             if (event.action == ActionType.DOWN) {
-                event.keys.forEach { touchInjector.keyDown(it) }
+                touchInjector.keyDownAll(event.keys)
             } else {
-                event.keys.forEach { touchInjector.keyUp(it) }
+                touchInjector.keyUpAll(event.keys)
             }
         }
 

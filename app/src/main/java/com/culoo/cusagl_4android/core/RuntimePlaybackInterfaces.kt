@@ -30,8 +30,16 @@ interface TouchInjector {
     fun keyDown(key: String)
     fun keyUp(key: String)
 
-    fun releaseAll(keys: List<String>) {
+    fun keyDownAll(keys: List<String>) {
+        keys.forEach { keyDown(it) }
+    }
+
+    fun keyUpAll(keys: List<String>) {
         keys.forEach { keyUp(it) }
+    }
+
+    fun releaseAll(keys: List<String>) {
+        keyUpAll(keys)
     }
 }
 
