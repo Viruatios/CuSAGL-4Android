@@ -181,3 +181,4 @@ _以下是_
 2. 要求 Copilot 生成了 AGENTS.md 和 plan-GeneralPlan.prompt.md 的初稿。AGENTS 快速介绍项目现况，PLAN 指出后续方向。后续对 GeneralPlan 进行了讨论完善，将其作为总大纲文件。具体的不同需求将再区分到不同的进程中分别去做，不在这一步。
 3. 完成 Step1 规划并落地曲谱解析与缓存机制核心：新增 core 模块数据模型、解析/预烘焙/缓存存取与日志标签规则，补充单元测试，并生成 Step1 规格文档；修复 Windows 下资源/源码符号链接导致的 Gradle 快照问题后重跑测试，以测试与构建通过作为质量保障。在此阶段，将“完成计划后，将一段简短的总结写入开发节点记录”写入 了AGENTS.md。
 4. 完成 Step2 运行时播放调度实现：新增运行时播放配置、调度器与触控注入接口，采用 `SystemClock.uptimeMillis` 的延迟-自旋调度，补充开始/暂停/停止/上一首/下一首与 `releaseAllTouches` 控制语义，并落地 `CopilotDocs/step2/plan.md`。
+5. 完成 Step3 触控注入与无障碍服务接入：新增无障碍服务、触控注入与坐标映射实现，更新 Manifest 与服务配置，补充坐标映射单元测试，并落地 `CopilotDocs/step3/plan.md`。
