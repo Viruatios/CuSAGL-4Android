@@ -51,5 +51,5 @@
 - Write a brief summary of what you did after completing  the implementation of each stepX, and update at `README.md ##开发节点的记录`.
 
 ## Key references
-- Android plan and touch mapping: `README.md`.
+- Android plan and touch mapping: `README.md`, `CopilotDocs/GeneralPlan.md`.
 - JS parsing/playback rules and historical fixes: `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
