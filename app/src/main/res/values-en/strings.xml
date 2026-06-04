@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">CuSAGL-4Android</string>
     <string name="accessibility_service_description">CuSAGL requires accessibility to use the touch injection service to tap the screen and enable automated performance.</string>
+    <string name="overlay_notification_channel">Overlay playback service</string>
+    <string name="overlay_notification_title">Overlay playback service is running</string>
+    <string name="overlay_notification_idle">Waiting to play</string>
 </resources>
 

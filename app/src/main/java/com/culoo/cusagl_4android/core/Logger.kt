@@ -11,6 +11,8 @@ object LogTags {
     const val FILE_MISSING = "FILE_MISSING"
     const val CACHE_INVALID = "CACHE_INVALID"
     const val ACCESSIBILITY = "ACCESSIBILITY"
+    const val PLAYBACK = "PLAYBACK"
+    const val OVERLAY = "OVERLAY"
 }
 
 object DefaultLogger : Logger {

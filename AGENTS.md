@@ -2,10 +2,11 @@
 
 ## Project snapshot
 - Android native port of the JS script in `OriginScripts/CuSimpAutoGenshinLyre/`; that folder is reference-only and is not packaged (see `README.md`).
-- Single Android app module in `app/` using Jetpack Compose; current UI is a placeholder in `app/src/main/java/com/culoo/cusagl_4android/MainActivity.kt`.
+- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` currently provides the temporary Step4 overlay-permission/status/test entry and is not the final main UI.
 - Core Kotlin logic now lives under `app/src/main/java/com/culoo/cusagl_4android/core/` (score parsing, storage/cache, timeline prebake).
 - Runtime playback scheduling is implemented in core (`RuntimePlaybackEngine`, `PlaybackConfig`, `RuntimePlaybackInterfaces`).
 - Touch injection and accessibility service wiring live under `app/src/main/java/com/culoo/cusagl_4android/accessibility/` (`LyreAccessibilityService`, `AccessibilityTouchInjector`, `TouchCoordinateMapper`).
+- Foreground playback service and Compose overlay controls live under `app/src/main/java/com/culoo/cusagl_4android/overlay/` (`OverlayPlaybackService`, `PlaybackSessionRequest`, `OverlayPositionMapper`).
 
 ## Architecture and data flow
 - Two-layer approach: port parsing/processing into pure Kotlin first, then bind to Compose UI and Android services later (see `README.md`).
@@ -14,6 +15,7 @@
 - Implemented core pipeline: `ScoreParser` -> `ScoreStorage.buildCache` -> `TimelinePrebaker.prebakeTimeline` (see `app/src/main/java/com/culoo/cusagl_4android/core/`).
 - Runtime playback uses cache -> `RuntimePlaybackEngine` -> `TouchInjector` with a `CacheProvider` (see `app/src/main/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngine.kt`).
 - Android touch injection path: `RuntimePlaybackEngine` -> `TouchInjector` -> `AccessibilityTouchInjector` -> `AccessibilityServiceBridge`/`LyreAccessibilityService` (gesture dispatch).
+- Overlay playback path: `PlaybackSessionRequest` -> `OverlayPlaybackService` -> `RuntimePlaybackEngine`; the service observes `PlaybackSnapshot` to update the Compose panel and foreground notification.
 
 ## Domain rules (music playback)
 - Playback must be serial by "basic unit" (not concurrent note timers) to avoid timing drift and key-up races; see v0.1.1 in `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
@@ -27,6 +29,8 @@
 - Base key coordinates are listed in `README.md` (e.g., `Q -> PointF(455f, 670f)`, `M -> PointF(1460f, 940f)`) and should be treated as canonical input positions.
 - Base key coordinates are mirrored in `app/src/main/java/com/culoo/cusagl_4android/core/KeyLayout.kt` as `KeyLayout.baseCoordinates` and `KeyLayout.allKeys`.
 - Runtime mapping uses `TouchCoordinateMapper` in `app/src/main/java/com/culoo/cusagl_4android/accessibility/TouchCoordinateMapper.kt` (WindowManager `currentWindowMetrics` + cached mapping).
+- Overlay positioning uses the same 1920x1080 scale and centered X mapping but top-aligns Y; `OverlayPositionMapper` constrains the panel above the mapped first key row with an 80px-base safety margin.
+- Overlay dragging is allowed only while playback is `IDLE`, `PAUSED`, or `STOPPED`; `PLAYING` locks the panel position.
 
 ## Project-specific conventions
 - JSON-heavy inputs should be modeled as Kotlin `data class` types before translating logic (explicitly recommended in `README.md`).
@@ -35,21 +39,26 @@
 - Score files are stored under `filesDir/score_file` and normalized to `####.name.json`; cache files live under `filesDir/cache` (see `ScoreStorage`).
 - Cache JSON is produced via `ScoreStorage.serializeCache` using `org.json` and stores merged timeline batches (`CacheData`).
 - Core unit tests already exist in `app/src/test/java/com/culoo/cusagl_4android/core/ScoreParserTest.kt`.
+- Playback snapshot tests live in `app/src/test/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngineTest.kt`; overlay geometry tests live under `app/src/test/java/com/culoo/cusagl_4android/overlay/`.
 - Runtime playback injects dependencies via `TimeSource`, `Sleeper`, and `TouchInjector` to keep core logic platform-agnostic (see `RuntimePlaybackInterfaces.kt`).
 - Cache loading for playback goes through `ScoreCacheProvider`, which builds cache on demand when missing (see `RuntimePlaybackInterfaces.kt`).
 - Core logging stays platform-agnostic via `Logger`/`LogTags` in `app/src/main/java/com/culoo/cusagl_4android/core/Logger.kt` (e.g., `ScoreStorage.listAndNormalizeScores` accepts a `Logger`).
 
 ## Developer workflow notes
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.
+- Run `gradlew.bat :app:testDebugUnitTest :app:assembleDebug` to verify local unit tests and the debug build.
+- The project compiles against Android API 36.1; keep `androidx.core-ktx` on a release compatible with that SDK (`1.18.0` currently), because `1.19.0` requires API 37.
 - Accessibility service config lives in `app/src/main/res/xml/accessibility_service_config.xml` and is declared in `app/src/main/AndroidManifest.xml`.
+- `OverlayPlaybackService` is a `specialUse` foreground service declared in `app/src/main/AndroidManifest.xml`; it requires overlay permission and a connected accessibility service before starting.
 
 ## Communication and rules
 - Use Chinese while communicating with the user.
-- - `X` is a placeholder for the current step number (e.g., `step1`, `step2`); update as needed when new steps are added.
+- UTF-8 encoding for all files while reading/writing. 
+- `X` is a placeholder for the current step number (e.g., `step1`, `step2`); update as needed when new steps are added.
 - For each stepX, write down `CopilotDocs/stepX/plan.md` first to focus on the current requirement and avoid scope creep; if new requirements arise, note them down in `CopilotDocs/stepX/plan.md` for future implementation.
 - Before starting a new stepX, read the `CopilotDocs/GeneralPlan.md` to confirm what to do. Then check the `CopilotDocs/step(X-N)/plan.md` of those previous steps for any relevant context or pending requirements that may affect the new step.
 - Write a brief summary of what you did after completing  the implementation of each stepX, and update at `README.md ##开发节点的记录`.
 
 ## Key references
-- Android plan and touch mapping: `README.md`.
+- Android plan and touch mapping: `README.md`, `CopilotDocs/GeneralPlan.md`.
 - JS parsing/playback rules and historical fixes: `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
