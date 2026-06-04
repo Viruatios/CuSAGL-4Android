@@ -183,3 +183,4 @@ _以下是_
 4. 完成 Step2 运行时播放调度实现：新增运行时播放配置、调度器与触控注入接口，采用 `SystemClock.uptimeMillis` 的延迟-自旋调度，补充开始/暂停/停止/上一首/下一首与 `releaseAllTouches` 控制语义，并落地 `CopilotDocs/step2/plan.md`。
 5. 完成 Step3 触控注入与无障碍服务接入：新增无障碍服务、触控注入与坐标映射实现，更新 Manifest 与服务配置，补充坐标映射单元测试，并落地 `CopilotDocs/step3/plan.md`。
 6. 完成 Step4 悬浮窗播放控制与前台服务：新增播放状态快照与监听、Compose 悬浮控制面板、`specialUse` 前台服务和临时验收入口；悬浮窗采用顶部对齐坐标映射并限制在琴键安全区域内，仅在非播放状态允许拖动；补充位置映射与播放状态单元测试，并落地 `CopilotDocs/step4/plan.md`。
+7. 完成 Step4 后项目维护任务：新增 workspace skill `update-agent-instructions`，用于从代码库可验证现状出发，对项目根目录现有 `AGENTS.md` 做最小、保留原有结构的增量更新，并规范一次性发现其他 AI 指令、差异核对和更新后验证流程。
