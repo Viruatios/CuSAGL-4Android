@@ -3,6 +3,7 @@ package com.culoo.cusagl_4android.accessibility
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import com.culoo.cusagl_4android.core.DefaultLogger
+import com.culoo.cusagl_4android.core.KeyLayout
 import com.culoo.cusagl_4android.core.LogTags
 import com.culoo.cusagl_4android.core.Logger
 import com.culoo.cusagl_4android.core.TouchInjector
@@ -83,6 +84,14 @@ class AccessibilityTouchInjector(
     }
 
     override fun onServiceUnavailable() {
+        synchronized(lock) {
+            activeStrokes.clear()
+        }
+    }
+
+    fun close() {
+        releaseAll(KeyLayout.allKeys)
+        AccessibilityServiceBridge.unregisterListener(this)
         synchronized(lock) {
             activeStrokes.clear()
         }

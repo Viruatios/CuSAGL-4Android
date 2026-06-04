@@ -9,42 +9,44 @@ object AccessibilityServiceBridge {
     private val lock = Any()
     @Volatile
     private var service: LyreAccessibilityService? = null
-    @Volatile
-    private var listener: AccessibilityServiceListener? = null
+    private val listeners = linkedSetOf<AccessibilityServiceListener>()
 
     fun getService(): LyreAccessibilityService? = service
 
     fun isConnected(): Boolean = service != null
 
     fun registerListener(newListener: AccessibilityServiceListener) {
-        synchronized(lock) {
-            listener = newListener
-            service?.let { newListener.onServiceAvailable(it) }
+        val currentService = synchronized(lock) {
+            listeners.add(newListener)
+            service
         }
+        currentService?.let { newListener.onServiceAvailable(it) }
     }
 
     fun unregisterListener(existing: AccessibilityServiceListener) {
         synchronized(lock) {
-            if (listener == existing) {
-                listener = null
-            }
+            listeners.remove(existing)
         }
     }
 
     internal fun bind(newService: LyreAccessibilityService) {
-        synchronized(lock) {
+        val listenerSnapshot = synchronized(lock) {
             service = newService
-            listener?.onServiceAvailable(newService)
+            listeners.toList()
         }
+        listenerSnapshot.forEach { it.onServiceAvailable(newService) }
     }
 
     internal fun unbind(oldService: LyreAccessibilityService) {
-        synchronized(lock) {
+        val listenerSnapshot = synchronized(lock) {
             if (service == oldService) {
                 service = null
-                listener?.onServiceUnavailable()
+                listeners.toList()
+            } else {
+                emptyList()
             }
         }
+        listenerSnapshot.forEach { it.onServiceUnavailable() }
     }
 }
 
