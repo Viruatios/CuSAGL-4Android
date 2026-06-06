@@ -185,3 +185,4 @@ _以下是_
 5. 完成 Step3 触控注入与无障碍服务接入：新增无障碍服务、触控注入与坐标映射实现，更新 Manifest 与服务配置，补充坐标映射单元测试，并落地 `CopilotDocs/step3/plan.md`。
 6. 完成 Step4 悬浮窗播放控制与前台服务：新增播放状态快照与监听、Compose 悬浮控制面板、`specialUse` 前台服务和临时验收入口；悬浮窗采用顶部对齐坐标映射并限制在琴键安全区域内，仅在非播放状态允许拖动；补充位置映射与播放状态单元测试，并落地 `CopilotDocs/step4/plan.md`。
    - 在此期间，从 Copilot 切换到了 Codex，因此将一些 Copilot 原有的内置技能做了显式的 SKILL 更新，以适配 Codex 的能力。具体地说：克隆了 `agent-customization`。新增 workspace skill `update-agent-instructions`，用于从代码库可验证现状出发，对项目根目录现有 `AGENTS.md` 做最小、保留原有结构的增量更新，并规范一次性发现其他 AI 指令、差异核对和更新后验证流程。该 SKILL 以后有望在全局复用。
+7. 完成 Step5 正式主页面与准备演奏入口：将 `MainActivity` 从 Step4 临时验收入口替换为 Compose 主页面，自动使用排序后的第一首曲谱，提供曲谱管理和播放配置占位页，接入曲谱预加载缓存保存流程，并在缓存、悬浮窗权限和无障碍服务均就绪后启动悬浮窗演奏服务；补充主页面缓存状态与预加载单元测试，并落地 `CopilotDocs/step5/plan.md`。
