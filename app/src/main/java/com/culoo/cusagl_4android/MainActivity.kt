@@ -1,21 +1,29 @@
 package com.culoo.cusagl_4android
 
 import android.os.Bundle
+import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,7 +36,12 @@ import com.culoo.cusagl_4android.core.PlaybackConfig
 import com.culoo.cusagl_4android.main.MainPage
 import com.culoo.cusagl_4android.main.MainScreenController
 import com.culoo.cusagl_4android.main.MainScreenState
+import com.culoo.cusagl_4android.main.ManualScoreDraft
 import com.culoo.cusagl_4android.main.PreloadResult
+import com.culoo.cusagl_4android.main.ScoreDeleteResult
+import com.culoo.cusagl_4android.main.ScoreEntry
+import com.culoo.cusagl_4android.main.ScoreManagementController
+import com.culoo.cusagl_4android.main.ScoreSaveResult
 import com.culoo.cusagl_4android.overlay.OverlayPermission
 import com.culoo.cusagl_4android.overlay.OverlayPlaybackService
 import com.culoo.cusagl_4android.overlay.PlaybackSessionRequest
@@ -39,6 +52,19 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private var screenState by mutableStateOf(MainScreenState())
+    private var scoreEntries by mutableStateOf<List<ScoreEntry>>(emptyList())
+    private var scoreManagementMessage by mutableStateOf<String?>(null)
+    private var isCreatingScore by mutableStateOf(false)
+    private var manualDraft by mutableStateOf(ManualScoreDraft())
+    private var pendingSave by mutableStateOf<PendingScoreSave?>(null)
+
+    private val openScoreDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            importScoreUri(uri)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +80,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                         onOpenScoreManagement = {
                             screenState = screenState.copy(page = MainPage.SCORE_MANAGEMENT)
+                            refreshScoreEntries()
                         },
                         onOpenPlaybackConfig = {
                             screenState = screenState.copy(page = MainPage.PLAYBACK_CONFIG)
@@ -63,6 +90,30 @@ class MainActivity : ComponentActivity() {
                         },
                         onGrantOverlay = {
                             startActivity(OverlayPermission.settingsIntent(this))
+                        },
+                        scoreEntries = scoreEntries,
+                        scoreManagementMessage = scoreManagementMessage,
+                        isCreatingScore = isCreatingScore,
+                        manualDraft = manualDraft,
+                        pendingSave = pendingSave,
+                        onImportScore = {
+                            openScoreDocumentLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                        },
+                        onStartCreateScore = {
+                            isCreatingScore = true
+                            scoreManagementMessage = null
+                        },
+                        onCancelCreateScore = {
+                            isCreatingScore = false
+                            manualDraft = ManualScoreDraft()
+                        },
+                        onManualDraftChange = { manualDraft = it },
+                        onSaveManualScore = ::saveManualScore,
+                        onDeleteScore = ::deleteScore,
+                        onConfirmOverwrite = ::confirmPendingOverwrite,
+                        onDismissOverwrite = {
+                            pendingSave = null
+                            scoreManagementMessage = "已取消覆盖。"
                         },
                         onPreload = ::preloadScore,
                         onStartOverlay = {
@@ -90,6 +141,11 @@ class MainActivity : ComponentActivity() {
             val currentPage = screenState.page
             val result = withContext(Dispatchers.IO) {
                 MainScreenController.refresh(filesDir)
+            }
+            if (currentPage == MainPage.SCORE_MANAGEMENT) {
+                scoreEntries = withContext(Dispatchers.IO) {
+                    ScoreManagementController.listScores(filesDir)
+                }
             }
             screenState = screenState.copy(
                 page = currentPage,
@@ -124,6 +180,148 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun refreshScoreEntries() {
+        lifecycleScope.launch {
+            scoreEntries = withContext(Dispatchers.IO) {
+                ScoreManagementController.listScores(filesDir)
+            }
+        }
+    }
+
+    private fun importScoreUri(uri: Uri) {
+        scoreManagementMessage = null
+        lifecycleScope.launch {
+            val text = withContext(Dispatchers.IO) {
+                contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+            }
+            if (text == null) {
+                scoreManagementMessage = "无法读取导入文件。"
+                return@launch
+            }
+            handleSaveResult(
+                result = withContext(Dispatchers.IO) {
+                    ScoreManagementController.importScoreText(
+                        filesDir = filesDir,
+                        sourceFileName = uri.lastPathSegment.orEmpty(),
+                        text = text,
+                        overwriteConfirmed = false
+                    )
+                },
+                pending = PendingScoreSave.Import(uri.lastPathSegment.orEmpty(), text)
+            )
+        }
+    }
+
+    private fun saveManualScore() {
+        val draft = manualDraft
+        scoreManagementMessage = null
+        lifecycleScope.launch {
+            handleSaveResult(
+                result = withContext(Dispatchers.IO) {
+                    ScoreManagementController.saveManualScore(
+                        filesDir = filesDir,
+                        draft = draft,
+                        overwriteConfirmed = false
+                    )
+                },
+                pending = PendingScoreSave.Manual(draft)
+            )
+        }
+    }
+
+    private fun confirmPendingOverwrite() {
+        val pending = pendingSave ?: return
+        pendingSave = null
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                when (pending) {
+                    is PendingScoreSave.Import -> ScoreManagementController.importScoreText(
+                        filesDir = filesDir,
+                        sourceFileName = pending.sourceFileName,
+                        text = pending.text,
+                        overwriteConfirmed = true
+                    )
+                    is PendingScoreSave.Manual -> ScoreManagementController.saveManualScore(
+                        filesDir = filesDir,
+                        draft = pending.draft,
+                        overwriteConfirmed = true
+                    )
+                }
+            }
+            handleSaveResult(result, pending)
+        }
+    }
+
+    private fun deleteScore(storageName: String) {
+        scoreManagementMessage = null
+        lifecycleScope.launch {
+            when (val result = withContext(Dispatchers.IO) {
+                ScoreManagementController.deleteScore(filesDir, storageName)
+            }) {
+                is ScoreDeleteResult.Success -> {
+                    scoreManagementMessage = "已删除曲谱：${result.storageName}"
+                    refreshAfterScoreManagementChange()
+                }
+                is ScoreDeleteResult.Failure -> {
+                    scoreManagementMessage = result.message
+                }
+            }
+        }
+    }
+
+    private suspend fun handleSaveResult(result: ScoreSaveResult, pending: PendingScoreSave) {
+        when (result) {
+            is ScoreSaveResult.Success -> {
+                scoreManagementMessage = "已保存曲谱：${result.storageName}"
+                pendingSave = null
+                isCreatingScore = false
+                manualDraft = ManualScoreDraft()
+                refreshAfterScoreManagementChange()
+            }
+            is ScoreSaveResult.NeedsOverwrite -> {
+                pendingSave = pending.withOverwriteTitle(result.title)
+                scoreManagementMessage = null
+            }
+            is ScoreSaveResult.Failure -> {
+                scoreManagementMessage = result.message
+            }
+        }
+    }
+
+    private suspend fun refreshAfterScoreManagementChange() {
+        scoreEntries = withContext(Dispatchers.IO) {
+            ScoreManagementController.listScores(filesDir)
+        }
+        val result = withContext(Dispatchers.IO) {
+            MainScreenController.refresh(filesDir)
+        }
+        screenState = screenState.copy(
+            firstScoreName = result.firstScoreName,
+            isCacheReady = result.isCacheReady,
+            errorMessage = null
+        )
+    }
+}
+
+private sealed class PendingScoreSave(open val overwriteTitle: String? = null) {
+    data class Import(
+        val sourceFileName: String,
+        val text: String,
+        override val overwriteTitle: String? = null
+    ) : PendingScoreSave(overwriteTitle)
+
+    data class Manual(
+        val draft: ManualScoreDraft,
+        override val overwriteTitle: String? = null
+    ) : PendingScoreSave(overwriteTitle)
+
+    fun withOverwriteTitle(title: String): PendingScoreSave {
+        return when (this) {
+            is Import -> copy(overwriteTitle = title)
+            is Manual -> copy(overwriteTitle = title)
+        }
+    }
 }
 
 @Composable
@@ -134,9 +332,40 @@ private fun MainScreen(
     onOpenPlaybackConfig: () -> Unit,
     onBackHome: () -> Unit,
     onGrantOverlay: () -> Unit,
+    scoreEntries: List<ScoreEntry>,
+    scoreManagementMessage: String?,
+    isCreatingScore: Boolean,
+    manualDraft: ManualScoreDraft,
+    pendingSave: PendingScoreSave?,
+    onImportScore: () -> Unit,
+    onStartCreateScore: () -> Unit,
+    onCancelCreateScore: () -> Unit,
+    onManualDraftChange: (ManualScoreDraft) -> Unit,
+    onSaveManualScore: () -> Unit,
+    onDeleteScore: (String) -> Unit,
+    onConfirmOverwrite: () -> Unit,
+    onDismissOverwrite: () -> Unit,
     onPreload: () -> Unit,
     onStartOverlay: () -> Unit
 ) {
+    if (pendingSave?.overwriteTitle != null) {
+        AlertDialog(
+            onDismissRequest = onDismissOverwrite,
+            title = { Text("覆盖曲谱") },
+            text = { Text("已存在同名曲谱「${pendingSave.overwriteTitle}」，是否覆盖？旧缓存会同步删除。") },
+            confirmButton = {
+                TextButton(onClick = onConfirmOverwrite) {
+                    Text("覆盖")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissOverwrite) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
     when (state.page) {
         MainPage.HOME -> MainHomeScreen(
             state = state,
@@ -147,10 +376,18 @@ private fun MainScreen(
             onPreload = onPreload,
             onStartOverlay = onStartOverlay
         )
-        MainPage.SCORE_MANAGEMENT -> PlaceholderPage(
-            title = "曲谱管理",
-            body = "曲谱导入、删除和手动创建会在 Step6 实现。",
+        MainPage.SCORE_MANAGEMENT -> ScoreManagementScreen(
+            entries = scoreEntries,
+            message = scoreManagementMessage,
+            isCreating = isCreatingScore,
+            draft = manualDraft,
             modifier = modifier,
+            onImportScore = onImportScore,
+            onStartCreate = onStartCreateScore,
+            onCancelCreate = onCancelCreateScore,
+            onDraftChange = onManualDraftChange,
+            onSaveManualScore = onSaveManualScore,
+            onDeleteScore = onDeleteScore,
             onBackHome = onBackHome
         )
         MainPage.PLAYBACK_CONFIG -> PlaceholderPage(
@@ -159,6 +396,170 @@ private fun MainScreen(
             modifier = modifier,
             onBackHome = onBackHome
         )
+    }
+}
+
+@Composable
+private fun ScoreManagementScreen(
+    entries: List<ScoreEntry>,
+    message: String?,
+    isCreating: Boolean,
+    draft: ManualScoreDraft,
+    modifier: Modifier = Modifier,
+    onImportScore: () -> Unit,
+    onStartCreate: () -> Unit,
+    onCancelCreate: () -> Unit,
+    onDraftChange: (ManualScoreDraft) -> Unit,
+    onSaveManualScore: () -> Unit,
+    onDeleteScore: (String) -> Unit,
+    onBackHome: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("曲谱管理")
+        if (message != null) {
+            Text(message)
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = onImportScore) {
+                Text("导入 JSON")
+            }
+            OutlinedButton(onClick = onStartCreate) {
+                Text("新建曲谱")
+            }
+        }
+
+        if (isCreating) {
+            ManualScoreForm(
+                draft = draft,
+                onDraftChange = onDraftChange,
+                onSave = onSaveManualScore,
+                onCancel = onCancelCreate
+            )
+        }
+
+        HorizontalDivider()
+
+        if (entries.isEmpty()) {
+            Text("没有已存储的曲谱。")
+        } else {
+            entries.forEach { entry ->
+                ScoreEntryCard(
+                    entry = entry,
+                    onDelete = { onDeleteScore(entry.storageName) }
+                )
+            }
+        }
+
+        Button(onClick = onBackHome) {
+            Text("返回主页面")
+        }
+    }
+}
+
+@Composable
+private fun ManualScoreForm(
+    draft: ManualScoreDraft,
+    onDraftChange: (ManualScoreDraft) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("新建曲谱")
+            OutlinedTextField(
+                value = draft.name,
+                onValueChange = { onDraftChange(draft.copy(name = it)) },
+                label = { Text("曲名") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.bpm,
+                onValueChange = { onDraftChange(draft.copy(bpm = it)) },
+                label = { Text("BPM") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.timeSignature,
+                onValueChange = { onDraftChange(draft.copy(timeSignature = it)) },
+                label = { Text("拍号") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.author,
+                onValueChange = { onDraftChange(draft.copy(author = it)) },
+                label = { Text("作者") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.instrument,
+                onValueChange = { onDraftChange(draft.copy(instrument = it)) },
+                label = { Text("建议乐器") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.description,
+                onValueChange = { onDraftChange(draft.copy(description = it)) },
+                label = { Text("描述") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.composer,
+                onValueChange = { onDraftChange(draft.copy(composer = it)) },
+                label = { Text("作曲者") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.arranger,
+                onValueChange = { onDraftChange(draft.copy(arranger = it)) },
+                label = { Text("编曲者") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.notes,
+                onValueChange = { onDraftChange(draft.copy(notes = it)) },
+                label = { Text("曲谱 notes") },
+                minLines = 6,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onSave) {
+                    Text("保存")
+                }
+                OutlinedButton(onClick = onCancel) {
+                    Text("取消")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreEntryCard(
+    entry: ScoreEntry,
+    onDelete: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(entry.title)
+            Text("文件：${entry.storageName}.json")
+            Text(if (entry.hasCache) "缓存：已生成" else "缓存：未生成")
+            OutlinedButton(onClick = onDelete) {
+                Text("删除")
+            }
+        }
     }
 }
 
