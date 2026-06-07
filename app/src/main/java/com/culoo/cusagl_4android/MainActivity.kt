@@ -21,7 +21,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,11 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.culoo.cusagl_4android.accessibility.AccessibilityServiceBridge
-import com.culoo.cusagl_4android.core.PlaybackConfig
 import com.culoo.cusagl_4android.main.MainPage
 import com.culoo.cusagl_4android.main.MainScreenController
 import com.culoo.cusagl_4android.main.MainScreenState
 import com.culoo.cusagl_4android.main.ManualScoreDraft
+import com.culoo.cusagl_4android.main.PlaybackConfigApplyResult
+import com.culoo.cusagl_4android.main.PlaybackConfigController
+import com.culoo.cusagl_4android.main.PlaybackConfigDraft
+import com.culoo.cusagl_4android.main.PlaybackConfigMode
 import com.culoo.cusagl_4android.main.PreloadResult
 import com.culoo.cusagl_4android.main.ScoreDeleteResult
 import com.culoo.cusagl_4android.main.ScoreEntry
@@ -57,6 +62,9 @@ class MainActivity : ComponentActivity() {
     private var isCreatingScore by mutableStateOf(false)
     private var manualDraft by mutableStateOf(ManualScoreDraft())
     private var pendingSave by mutableStateOf<PendingScoreSave?>(null)
+    private var playbackDraft by mutableStateOf(PlaybackConfigDraft())
+    private var playbackConfigMessage by mutableStateOf<String?>(null)
+    private var playbackRequest by mutableStateOf<PlaybackSessionRequest?>(null)
 
     private val openScoreDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -84,6 +92,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenPlaybackConfig = {
                             screenState = screenState.copy(page = MainPage.PLAYBACK_CONFIG)
+                            refreshPlaybackConfig()
                         },
                         onBackHome = {
                             screenState = screenState.copy(page = MainPage.HOME)
@@ -115,14 +124,15 @@ class MainActivity : ComponentActivity() {
                             pendingSave = null
                             scoreManagementMessage = "已取消覆盖。"
                         },
+                        playbackDraft = playbackDraft,
+                        playbackConfigMessage = playbackConfigMessage,
+                        onPlaybackDraftChange = { playbackDraft = it },
+                        onApplyPlaybackConfig = ::applyPlaybackConfig,
                         onPreload = ::preloadScore,
                         onStartOverlay = {
-                            val firstScore = screenState.firstScoreName ?: return@MainScreen
+                            val request = playbackRequest ?: return@MainScreen
                             if (!screenState.canPreparePlayback) return@MainScreen
-                            OverlayPlaybackService.start(
-                                this,
-                                PlaybackSessionRequest(listOf(firstScore), PlaybackConfig())
-                            )
+                            OverlayPlaybackService.start(this, request)
                         }
                     )
                 }
@@ -139,10 +149,16 @@ class MainActivity : ComponentActivity() {
     private fun refreshState() {
         lifecycleScope.launch {
             val currentPage = screenState.page
-            val result = withContext(Dispatchers.IO) {
-                MainScreenController.refresh(filesDir)
+            val appliedConfig = withContext(Dispatchers.IO) {
+                PlaybackConfigController.loadApplied(filesDir)
             }
-            if (currentPage == MainPage.SCORE_MANAGEMENT) {
+            val result = withContext(Dispatchers.IO) {
+                MainScreenController.refresh(filesDir, appliedConfig.scoreNames)
+            }
+            playbackDraft = appliedConfig.draft
+            playbackRequest = appliedConfig.request
+            playbackConfigMessage = appliedConfig.message
+            if (currentPage == MainPage.SCORE_MANAGEMENT || currentPage == MainPage.PLAYBACK_CONFIG) {
                 scoreEntries = withContext(Dispatchers.IO) {
                     ScoreManagementController.listScores(filesDir)
                 }
@@ -154,17 +170,20 @@ class MainActivity : ComponentActivity() {
                 isLoading = false,
                 errorMessage = null,
                 hasOverlayPermission = OverlayPermission.canDraw(this@MainActivity),
-                hasAccessibility = AccessibilityServiceBridge.isConnected()
+                hasAccessibility = AccessibilityServiceBridge.isConnected(),
+                playbackConfigSummary = appliedConfig.summary,
+                playbackQueueSize = appliedConfig.scoreNames.size,
+                hasPlaybackRequest = appliedConfig.request != null
             )
         }
     }
 
     private fun preloadScore() {
-        val scoreName = screenState.firstScoreName ?: return
+        val request = playbackRequest ?: return
         screenState = screenState.copy(isLoading = true, errorMessage = null)
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                MainScreenController.preloadFirstScore(filesDir, scoreName)
+                PlaybackConfigController.preloadScores(filesDir, request.queue)
             }
             screenState = when (result) {
                 is PreloadResult.Success -> screenState.copy(
@@ -177,6 +196,56 @@ class MainActivity : ComponentActivity() {
                     isLoading = false,
                     errorMessage = result.message
                 )
+            }
+        }
+    }
+
+    private fun refreshPlaybackConfig() {
+        lifecycleScope.launch {
+            val applied = withContext(Dispatchers.IO) {
+                PlaybackConfigController.loadApplied(filesDir)
+            }
+            playbackDraft = applied.draft
+            playbackRequest = applied.request
+            playbackConfigMessage = applied.message
+            scoreEntries = withContext(Dispatchers.IO) {
+                ScoreManagementController.listScores(filesDir)
+            }
+            screenState = screenState.copy(
+                playbackConfigSummary = applied.summary,
+                playbackQueueSize = applied.scoreNames.size,
+                hasPlaybackRequest = applied.request != null
+            )
+        }
+    }
+
+    private fun applyPlaybackConfig() {
+        val draft = playbackDraft
+        playbackConfigMessage = null
+        lifecycleScope.launch {
+            when (val result = withContext(Dispatchers.IO) {
+                PlaybackConfigController.applyAndSave(filesDir, draft)
+            }) {
+                is PlaybackConfigApplyResult.Success -> {
+                    val applied = result.applied
+                    playbackDraft = applied.draft
+                    playbackRequest = applied.request
+                    playbackConfigMessage = "已应用播放配置。"
+                    val refresh = withContext(Dispatchers.IO) {
+                        MainScreenController.refresh(filesDir, applied.scoreNames)
+                    }
+                    screenState = screenState.copy(
+                        firstScoreName = refresh.firstScoreName,
+                        isCacheReady = refresh.isCacheReady,
+                        errorMessage = null,
+                        playbackConfigSummary = applied.summary,
+                        playbackQueueSize = applied.scoreNames.size,
+                        hasPlaybackRequest = applied.request != null
+                    )
+                }
+                is PlaybackConfigApplyResult.Failure -> {
+                    playbackConfigMessage = result.message
+                }
             }
         }
     }
@@ -294,11 +363,20 @@ class MainActivity : ComponentActivity() {
             ScoreManagementController.listScores(filesDir)
         }
         val result = withContext(Dispatchers.IO) {
-            MainScreenController.refresh(filesDir)
+            PlaybackConfigController.loadApplied(filesDir)
         }
+        val refresh = withContext(Dispatchers.IO) {
+            MainScreenController.refresh(filesDir, result.scoreNames)
+        }
+        playbackDraft = result.draft
+        playbackRequest = result.request
+        playbackConfigMessage = result.message
         screenState = screenState.copy(
-            firstScoreName = result.firstScoreName,
-            isCacheReady = result.isCacheReady,
+            firstScoreName = refresh.firstScoreName,
+            isCacheReady = refresh.isCacheReady,
+            playbackConfigSummary = result.summary,
+            playbackQueueSize = result.scoreNames.size,
+            hasPlaybackRequest = result.request != null,
             errorMessage = null
         )
     }
@@ -337,6 +415,8 @@ private fun MainScreen(
     isCreatingScore: Boolean,
     manualDraft: ManualScoreDraft,
     pendingSave: PendingScoreSave?,
+    playbackDraft: PlaybackConfigDraft,
+    playbackConfigMessage: String?,
     onImportScore: () -> Unit,
     onStartCreateScore: () -> Unit,
     onCancelCreateScore: () -> Unit,
@@ -345,6 +425,8 @@ private fun MainScreen(
     onDeleteScore: (String) -> Unit,
     onConfirmOverwrite: () -> Unit,
     onDismissOverwrite: () -> Unit,
+    onPlaybackDraftChange: (PlaybackConfigDraft) -> Unit,
+    onApplyPlaybackConfig: () -> Unit,
     onPreload: () -> Unit,
     onStartOverlay: () -> Unit
 ) {
@@ -390,10 +472,13 @@ private fun MainScreen(
             onDeleteScore = onDeleteScore,
             onBackHome = onBackHome
         )
-        MainPage.PLAYBACK_CONFIG -> PlaceholderPage(
-            title = "播放配置",
-            body = "自定义播放参数会在 Step7 实现。当前使用默认配置。",
+        MainPage.PLAYBACK_CONFIG -> PlaybackConfigScreen(
+            entries = scoreEntries,
+            draft = playbackDraft,
+            message = playbackConfigMessage,
             modifier = modifier,
+            onDraftChange = onPlaybackDraftChange,
+            onApply = onApplyPlaybackConfig,
             onBackHome = onBackHome
         )
     }
@@ -564,6 +649,142 @@ private fun ScoreEntryCard(
 }
 
 @Composable
+private fun PlaybackConfigScreen(
+    entries: List<ScoreEntry>,
+    draft: PlaybackConfigDraft,
+    message: String?,
+    modifier: Modifier = Modifier,
+    onDraftChange: (PlaybackConfigDraft) -> Unit,
+    onApply: () -> Unit,
+    onBackHome: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("播放配置")
+        if (message != null) {
+            Text(message)
+        }
+        Text("当前可用曲谱：${entries.size} 首")
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("播放模式")
+                PlaybackConfigMode.allModes.forEach { mode ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RadioButton(
+                            selected = draft.mode == mode,
+                            onClick = { onDraftChange(draft.copy(mode = mode)) }
+                        )
+                        Text(mode.label)
+                    }
+                }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("曲谱")
+                if (entries.isEmpty()) {
+                    Text("没有已存储的曲谱。请先进入曲谱管理导入或创建曲谱。")
+                } else if (draft.mode.isQueueMode()) {
+                    OutlinedTextField(
+                        value = draft.queueText,
+                        onValueChange = { onDraftChange(draft.copy(queueText = it)) },
+                        label = { Text("队列序号") },
+                        placeholder = { Text("例如：1 3 15；留空默认全部播放") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    entries.forEach { entry ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            RadioButton(
+                                selected = draft.selectedScoreName == entry.storageName,
+                                onClick = { onDraftChange(draft.copy(selectedScoreName = entry.storageName)) }
+                            )
+                            Column {
+                                Text(entry.title)
+                                Text(entry.storageName)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("定时与间隔")
+                OutlinedTextField(
+                    value = draft.startTimeText,
+                    onValueChange = { onDraftChange(draft.copy(startTimeText = it)) },
+                    label = { Text("定时启动时间") },
+                    placeholder = { Text("HH:mm 或 HH:mm:ss；留空不启用") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = draft.queueIntervalSeconds,
+                    onValueChange = { onDraftChange(draft.copy(queueIntervalSeconds = it)) },
+                    label = { Text("队列内间隔时间（秒）") },
+                    enabled = draft.mode.isQueueMode(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = draft.repeatTimes,
+                    onValueChange = { onDraftChange(draft.copy(repeatTimes = it)) },
+                    label = { Text("循环执行次数") },
+                    enabled = draft.mode.isRepeatMode(),
+                    placeholder = { Text("0 表示无限循环") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = draft.repeatIntervalSeconds,
+                    onValueChange = { onDraftChange(draft.copy(repeatIntervalSeconds = it)) },
+                    label = { Text("循环间隔时间（秒）") },
+                    enabled = draft.mode.isRepeatMode(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Switch(
+                    checked = draft.debugEnabled,
+                    onCheckedChange = { onDraftChange(draft.copy(debugEnabled = it)) }
+                )
+                Text("调试模式")
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = onApply) {
+                Text("保存并应用")
+            }
+            OutlinedButton(onClick = onBackHome) {
+                Text("返回主页面")
+            }
+        }
+    }
+}
+
+@Composable
 private fun MainHomeScreen(
     state: MainScreenState,
     modifier: Modifier = Modifier,
@@ -582,7 +803,9 @@ private fun MainHomeScreen(
     ) {
         Text("CuSAGL 主页面")
         Text("当前曲谱：${state.firstScoreName ?: "没有可用曲谱"}")
-        Text(if (state.isCacheReady) "曲谱缓存：已预加载" else "曲谱缓存：未预加载")
+        Text("播放配置：${state.playbackConfigSummary}")
+        Text("配置队列：${state.playbackQueueSize} 首")
+        Text(if (state.isCacheReady) "配置队列缓存：已预加载" else "配置队列缓存：未预加载")
         Text(if (state.hasOverlayPermission) "悬浮窗权限：已授予" else "悬浮窗权限：未授予")
         Text(if (state.hasAccessibility) "无障碍服务：已连接" else "无障碍服务：未连接")
         if (state.errorMessage != null) {
