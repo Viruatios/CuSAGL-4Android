@@ -65,7 +65,8 @@
 - `X` is a placeholder for the current step number (e.g., `step1`, `step2`); update as needed when new steps are added.
 - For each stepX, write down `CopilotDocs/stepX/plan.md` first to focus on the current requirement and avoid scope creep; if new requirements arise, note them down in `CopilotDocs/stepX/plan.md` for future implementation.
 - Before starting a new stepX, read the `CopilotDocs/GeneralPlan.md` to confirm what to do. Then check the `CopilotDocs/step(X-N)/plan.md` of those previous steps for any relevant context or pending requirements that may affect the new step.
-- Write a brief summary of what you did after completing  the implementation of each stepX, and update at `README.md ##开发节点的记录`.
+- For bug fixes, use `bugfixX` instead of `stepX` and write `CopilotDocs/bugfixX/plan.md` first.
+- Write a brief summary of what you did after completing  the implementation of each stepX or bugfixX, and update at `README.md ##开发节点的记录`.
 
 ## Key references
 - Android plan and touch mapping: `README.md`, `CopilotDocs/GeneralPlan.md`.

@@ -85,4 +85,20 @@ class OverlayPositionMapperTest {
             )
         )
     }
+
+    @Test
+    fun oversizedPanel_constrainFallsBackToVisibleTop() {
+        val position = OverlayPositionMapper.constrain(
+            requestedX = 5000,
+            requestedY = 5000,
+            widthPx = 1920,
+            heightPx = 1080,
+            overlayWidthPx = 400,
+            overlayHeightPx = 600,
+            topInsetPx = 24
+        )
+
+        assertEquals(760, position.x)
+        assertEquals(24, position.y)
+    }
 }
