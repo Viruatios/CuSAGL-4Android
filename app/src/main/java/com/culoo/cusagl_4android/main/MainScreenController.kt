@@ -20,13 +20,16 @@ data class MainScreenState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val hasOverlayPermission: Boolean = false,
-    val hasAccessibility: Boolean = false
+    val hasAccessibility: Boolean = false,
+    val playbackConfigSummary: String = "单曲单次执行：默认第一首曲谱",
+    val playbackQueueSize: Int = 0,
+    val hasPlaybackRequest: Boolean = false
 ) {
     val canPreload: Boolean
-        get() = firstScoreName != null && !isLoading
+        get() = hasPlaybackRequest && !isLoading
 
     val canPreparePlayback: Boolean
-        get() = firstScoreName != null &&
+        get() = hasPlaybackRequest &&
             isCacheReady &&
             hasOverlayPermission &&
             hasAccessibility &&
@@ -44,13 +47,18 @@ sealed class PreloadResult {
 }
 
 object MainScreenController {
-    fun refresh(filesDir: File, logger: Logger = DefaultLogger): MainRefreshResult {
+    fun refresh(
+        filesDir: File,
+        configuredQueue: List<String>? = null,
+        logger: Logger = DefaultLogger
+    ): MainRefreshResult {
         val scoreNames = ScoreStorage.listAndNormalizeScores(filesDir, logger)
         ScoreStorage.cleanExpiredCaches(filesDir, scoreNames.toSet(), logger)
         val firstScore = scoreNames.firstOrNull()
+        val queue = configuredQueue?.filter { scoreNames.contains(it) } ?: listOfNotNull(firstScore)
         return MainRefreshResult(
             firstScoreName = firstScore,
-            isCacheReady = firstScore?.let { ScoreStorage.loadCache(filesDir, it, logger) != null } ?: false
+            isCacheReady = queue.isNotEmpty() && queue.all { ScoreStorage.loadCache(filesDir, it, logger) != null }
         )
     }
 

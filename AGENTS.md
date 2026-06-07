@@ -2,9 +2,9 @@
 
 ## Project snapshot
 - Android native port of the JS script in `OriginScripts/CuSimpAutoGenshinLyre/`; that folder is reference-only and is not packaged (see `README.md`).
-- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` is the current main UI with score preload, score management, placeholder playback configuration, permission status, and "prepare playback" entry.
+- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` is the current main UI with score preload, score management, playback configuration, permission status, and "prepare playback" entry.
 - Core Kotlin logic now lives under `app/src/main/java/com/culoo/cusagl_4android/core/` (score parsing, storage/cache, timeline prebake).
-- Main-screen state, preload helpers, and score-management helpers live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainScreenController`, `MainScreenState`, `ScoreManagementController`).
+- Main-screen state, preload helpers, score-management helpers, and playback-configuration helpers live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainScreenController`, `MainScreenState`, `ScoreManagementController`, `PlaybackConfigController`).
 - Runtime playback scheduling is implemented in core (`RuntimePlaybackEngine`, `PlaybackConfig`, `RuntimePlaybackInterfaces`).
 - Touch injection and accessibility service wiring live under `app/src/main/java/com/culoo/cusagl_4android/accessibility/` (`LyreAccessibilityService`, `AccessibilityTouchInjector`, `TouchCoordinateMapper`).
 - Foreground playback service and Compose overlay controls live under `app/src/main/java/com/culoo/cusagl_4android/overlay/` (`OverlayPlaybackService`, `PlaybackSessionRequest`, `OverlayPositionMapper`).
@@ -16,8 +16,9 @@
 - Implemented core pipeline: `ScoreParser` -> `ScoreStorage.buildCache` -> `TimelinePrebaker.prebakeTimeline` (see `app/src/main/java/com/culoo/cusagl_4android/core/`).
 - Runtime playback uses cache -> `RuntimePlaybackEngine` -> `TouchInjector` with a `CacheProvider` (see `app/src/main/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngine.kt`).
 - Android touch injection path: `RuntimePlaybackEngine` -> `TouchInjector` -> `AccessibilityTouchInjector` -> `AccessibilityServiceBridge`/`LyreAccessibilityService` (gesture dispatch).
-- Main-page preparation path: `MainActivity` -> `MainScreenController.refresh/preloadFirstScore` -> `ScoreStorage`/`ScoreParser`, then `PlaybackSessionRequest` -> `OverlayPlaybackService` when ready.
+- Main-page preparation path: `MainActivity` -> `PlaybackConfigController.loadApplied/applyAndSave` -> `MainScreenController.refresh(configuredQueue)` / `PlaybackConfigController.preloadScores` -> `ScoreStorage`/`ScoreParser`, then `PlaybackSessionRequest` -> `OverlayPlaybackService` when ready.
 - Score-management path: `MainActivity` -> `ScoreManagementController` -> `ScoreStorage`/`ScoreParser`; it handles system document import, manual score creation, duplicate overwrite confirmation, and cache cleanup on overwrite/delete.
+- Playback-configuration path: `MainActivity` -> `PlaybackConfigController` -> `PlaybackConfigDraft`/`AppliedPlaybackConfig`; it persists app-private JSON config, maps the four `settings.json` play modes to `PlayType`, resolves single-score/queue selection, and builds `PlaybackSessionRequest`.
 - Overlay playback path: `PlaybackSessionRequest` -> `OverlayPlaybackService` -> `RuntimePlaybackEngine`; the service observes `PlaybackSnapshot` to update the Compose panel and foreground notification.
 
 ## Domain rules (music playback)
@@ -40,11 +41,12 @@
 - JS async patterns map to Kotlin coroutines (`suspend`) when porting file IO or preprocessing work.
 - Prefer extracting pure Kotlin logic from UI; use unit tests under `app/src/test` to validate against known JS behavior (see `README.md`).
 - Score files are stored under `filesDir/score_file` and normalized to `####.name.json`; cache files live under `filesDir/cache` (see `ScoreStorage`).
-- The current main UI still prepares playback from the first normalized score only; score import/delete/manual creation is implemented in Step6, while score selection/queues and full playback configuration remain later-step work (see `CopilotDocs/step6/plan.md` and `CopilotDocs/step7` planning).
+- Playback configuration is implemented in Step7: the main UI uses the applied config queue for preload/prepare playback, with single-score fallback and queue parsing rules aligned to the JS `settings.json` behavior (see `CopilotDocs/step7/plan.md`).
+- Playback config is persisted as app-private `filesDir/playback_config.json`; debug mode is stored in the draft but does not yet change `Logger` behavior.
 - Score import/manual creation uses strict validation via `ScoreParser.parseScoreTextStrict`: non-empty `name`, positive integer `bpm`, `N/D` time signature with power-of-two denominator, non-empty `notes`, and non-empty parsed notes.
 - Cache JSON is produced via `ScoreStorage.serializeCache` using `org.json` and stores merged timeline batches (`CacheData`).
 - Core unit tests already exist in `app/src/test/java/com/culoo/cusagl_4android/core/ScoreParserTest.kt`.
-- Playback snapshot tests live in `app/src/test/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngineTest.kt`; overlay geometry tests live under `app/src/test/java/com/culoo/cusagl_4android/overlay/`; main-screen preload/cache and score-management tests live under `app/src/test/java/com/culoo/cusagl_4android/main/`.
+- Playback snapshot tests live in `app/src/test/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngineTest.kt`; overlay geometry tests live under `app/src/test/java/com/culoo/cusagl_4android/overlay/`; main-screen preload/cache, score-management, and playback-config tests live under `app/src/test/java/com/culoo/cusagl_4android/main/`.
 - Runtime playback injects dependencies via `TimeSource`, `Sleeper`, and `TouchInjector` to keep core logic platform-agnostic (see `RuntimePlaybackInterfaces.kt`).
 - Cache loading for playback goes through `ScoreCacheProvider`, which builds cache on demand when missing (see `RuntimePlaybackInterfaces.kt`).
 - Core logging stays platform-agnostic via `Logger`/`LogTags` in `app/src/main/java/com/culoo/cusagl_4android/core/Logger.kt` (e.g., `ScoreStorage.listAndNormalizeScores` accepts a `Logger`).

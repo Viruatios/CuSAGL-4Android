@@ -15,7 +15,7 @@ class MainScreenControllerTest {
     fun refresh_withoutScores_disablesPreloadAndPrepare() {
         val tempDir = Files.createTempDirectory("cusagl-main-empty").toFile()
 
-        val result = MainScreenController.refresh(tempDir, DefaultLogger)
+        val result = MainScreenController.refresh(tempDir, logger = DefaultLogger)
         val state = MainScreenState(
             firstScoreName = result.firstScoreName,
             isCacheReady = result.isCacheReady,
@@ -35,12 +35,13 @@ class MainScreenControllerTest {
         writeScore(tempDir, "0001.test")
 
         val preload = MainScreenController.preloadFirstScore(tempDir, "0001.test", DefaultLogger)
-        val refresh = MainScreenController.refresh(tempDir, DefaultLogger)
+        val refresh = MainScreenController.refresh(tempDir, logger = DefaultLogger)
         val state = MainScreenState(
             firstScoreName = refresh.firstScoreName,
             isCacheReady = refresh.isCacheReady,
             hasOverlayPermission = true,
-            hasAccessibility = true
+            hasAccessibility = true,
+            hasPlaybackRequest = true
         )
 
         assertTrue(preload is PreloadResult.Success)
@@ -50,13 +51,55 @@ class MainScreenControllerTest {
     }
 
     @Test
+    fun refresh_configuredQueueRequiresAllCachesReady() {
+        val tempDir = Files.createTempDirectory("cusagl-main-queue-cache").toFile()
+        writeScore(tempDir, "0001.first")
+        writeScore(tempDir, "0002.second")
+        val first = ScoreParser.loadScoreByName(tempDir, "0001.first", DefaultLogger)!!
+        ScoreStorage.saveCache(tempDir, "0001.first", ScoreStorage.buildCache(first), DefaultLogger)
+
+        val partial = MainScreenController.refresh(
+            tempDir,
+            configuredQueue = listOf("0001.first", "0002.second"),
+            logger = DefaultLogger
+        )
+        val second = ScoreParser.loadScoreByName(tempDir, "0002.second", DefaultLogger)!!
+        ScoreStorage.saveCache(tempDir, "0002.second", ScoreStorage.buildCache(second), DefaultLogger)
+        val complete = MainScreenController.refresh(
+            tempDir,
+            configuredQueue = listOf("0001.first", "0002.second"),
+            logger = DefaultLogger
+        )
+
+        assertFalse(partial.isCacheReady)
+        assertTrue(complete.isCacheReady)
+    }
+
+    @Test
+    fun preloadConfiguredQueue_writesCacheForEachScore() {
+        val tempDir = Files.createTempDirectory("cusagl-main-queue-preload").toFile()
+        writeScore(tempDir, "0001.first")
+        writeScore(tempDir, "0002.second")
+
+        val result = PlaybackConfigController.preloadScores(
+            tempDir,
+            listOf("0001.first", "0002.second"),
+            DefaultLogger
+        )
+
+        assertTrue(result is PreloadResult.Success)
+        assertTrue(ScoreStorage.cacheFile(tempDir, "0001.first").exists())
+        assertTrue(ScoreStorage.cacheFile(tempDir, "0002.second").exists())
+    }
+
+    @Test
     fun refresh_withExistingCache_marksReady() {
         val tempDir = Files.createTempDirectory("cusagl-main-cache").toFile()
         writeScore(tempDir, "0001.test")
         val score = ScoreParser.loadScoreByName(tempDir, "0001.test", DefaultLogger)!!
         ScoreStorage.saveCache(tempDir, "0001.test", ScoreStorage.buildCache(score), DefaultLogger)
 
-        val result = MainScreenController.refresh(tempDir, DefaultLogger)
+        val result = MainScreenController.refresh(tempDir, logger = DefaultLogger)
 
         assertEquals("0001.test", result.firstScoreName)
         assertTrue(result.isCacheReady)
@@ -87,7 +130,7 @@ class MainScreenControllerTest {
         cacheFile.setLastModified(1_000L)
         scoreFile.setLastModified(2_000L)
 
-        val result = MainScreenController.refresh(tempDir, DefaultLogger)
+        val result = MainScreenController.refresh(tempDir, logger = DefaultLogger)
 
         assertEquals("0001.test", result.firstScoreName)
         assertFalse(cacheFile.exists())
