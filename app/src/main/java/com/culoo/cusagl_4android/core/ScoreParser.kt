@@ -2,10 +2,10 @@ package com.culoo.cusagl_4android.core
 
 import org.json.JSONObject
 import java.io.File
-import kotlin.math.roundToInt
 
 object ScoreParser {
     private val partRegex = Regex("\\([A-Za-z]+\\)|[A-Za-z]")
+    private val strictTimeSignatureRegex = Regex("^\\d+/\\d+$")
 
     fun loadScoreByName(filesDir: File, name: String, logger: Logger = DefaultLogger): ScoreInfo? {
         val scoreFile = ScoreStorage.scoreFile(filesDir, name)
@@ -21,29 +21,66 @@ object ScoreParser {
             return null
         }
 
+        return parseScoreText(text, strict = false, logger = logger, source = scoreFile.absolutePath)
+    }
+
+    fun parseScoreTextStrict(text: String, logger: Logger = DefaultLogger): ScoreParseResult {
+        return parseScoreText(text, strict = true, logger = logger, source = "score text")
+            ?.let { ScoreParseResult.Success(it) }
+            ?: ScoreParseResult.Failure("曲谱 JSON 校验失败")
+    }
+
+    private fun parseScoreText(
+        text: String,
+        strict: Boolean,
+        logger: Logger,
+        source: String
+    ): ScoreInfo? {
         val json = try {
             JSONObject(text)
         } catch (ex: Exception) {
-            logger.e(LogTags.PARSE_FAIL, "Invalid score JSON: ${scoreFile.absolutePath}", ex)
+            logger.e(LogTags.PARSE_FAIL, "Invalid score JSON: $source", ex)
             return null
         }
 
-        val notesText = json.optString("notes", null)
+        val notesText = if (json.has("notes")) json.optString("notes") else null
         if (notesText.isNullOrBlank()) {
-            logger.e(LogTags.PARSE_FAIL, "Missing notes in score: ${scoreFile.absolutePath}")
+            logger.e(LogTags.PARSE_FAIL, "Missing notes in score: $source")
             return null
+        }
+
+        val name = json.optString("name", "未知曲名")
+        val bpm = parseBpm(json.opt("bpm"))
+        val timeSignature = json.optString("time_signature", "4/4")
+        if (strict) {
+            if (name.isBlank()) {
+                logger.e(LogTags.PARSE_FAIL, "Missing name in score: $source")
+                return null
+            }
+            if (!isPositiveBpm(json.opt("bpm"))) {
+                logger.e(LogTags.PARSE_FAIL, "Invalid bpm in score: $source")
+                return null
+            }
+            if (!isValidTimeSignature(timeSignature)) {
+                logger.e(LogTags.PARSE_FAIL, "Invalid time signature in score: $source")
+                return null
+            }
         }
 
         val notes = parseNotes(notesText)
+        if (strict && notes.isEmpty()) {
+            logger.e(LogTags.PARSE_FAIL, "Empty parsed notes in score: $source")
+            return null
+        }
 
         return ScoreInfo(
-            name = json.optString("name", "未知曲名"),
+            name = name,
             author = json.optString("author", "未知作者"),
             instrument = json.optString("instrument", "无建议乐器"),
             description = json.optString("description", "无描述"),
             type = "keyboard",
-            bpm = parseBpm(json.opt("bpm")),
-            timeSignature = json.optString("time_signature", "4/4"),
+            bpm = bpm,
+            timeSignature = timeSignature,
             composer = json.optString("composer", "未知作曲者"),
             arranger = json.optString("arranger", "未知编曲者"),
             notes = notes
@@ -119,8 +156,29 @@ object ScoreParser {
         }
     }
 
+    private fun isPositiveBpm(value: Any?): Boolean {
+        return when (value) {
+            is Number -> value.toInt() > 0
+            is String -> value.trim().toIntOrNull()?.let { it > 0 } ?: false
+            else -> false
+        }
+    }
+
+    private fun isValidTimeSignature(value: String): Boolean {
+        if (!strictTimeSignatureRegex.matches(value.trim())) return false
+        val parts = value.split('/')
+        val num = parts[0].toIntOrNull() ?: return false
+        val den = parts[1].toIntOrNull() ?: return false
+        return num > 0 && den > 0 && den and (den - 1) == 0
+    }
+
     private fun toValidKeys(text: String): List<String> {
         return text.uppercase().filter { it in 'A'..'Z' }.map { it.toString() }
     }
+}
+
+sealed class ScoreParseResult {
+    data class Success(val score: ScoreInfo) : ScoreParseResult()
+    data class Failure(val message: String) : ScoreParseResult()
 }
 
