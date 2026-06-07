@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,11 +19,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,11 +36,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import com.culoo.cusagl_4android.accessibility.AccessibilityPermission
 import com.culoo.cusagl_4android.accessibility.AccessibilityServiceBridge
 import com.culoo.cusagl_4android.main.MainPage
 import com.culoo.cusagl_4android.main.MainScreenController
 import com.culoo.cusagl_4android.main.MainScreenState
 import com.culoo.cusagl_4android.main.ManualScoreDraft
+import com.culoo.cusagl_4android.main.PermissionGuideAction
+import com.culoo.cusagl_4android.main.PermissionGuideController
 import com.culoo.cusagl_4android.main.PlaybackConfigApplyResult
 import com.culoo.cusagl_4android.main.PlaybackConfigController
 import com.culoo.cusagl_4android.main.PlaybackConfigDraft
@@ -65,6 +71,7 @@ class MainActivity : ComponentActivity() {
     private var playbackDraft by mutableStateOf(PlaybackConfigDraft())
     private var playbackConfigMessage by mutableStateOf<String?>(null)
     private var playbackRequest by mutableStateOf<PlaybackSessionRequest?>(null)
+    private var permissionDialogDismissedInCurrentForeground by mutableStateOf(false)
 
     private val openScoreDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -98,7 +105,16 @@ class MainActivity : ComponentActivity() {
                             screenState = screenState.copy(page = MainPage.HOME)
                         },
                         onGrantOverlay = {
+                            permissionDialogDismissedInCurrentForeground = true
                             startActivity(OverlayPermission.settingsIntent(this))
+                        },
+                        onGrantAccessibility = {
+                            permissionDialogDismissedInCurrentForeground = true
+                            startActivity(AccessibilityPermission.settingsIntent())
+                        },
+                        permissionDialogDismissed = permissionDialogDismissedInCurrentForeground,
+                        onDismissPermissionGuide = {
+                            permissionDialogDismissedInCurrentForeground = true
                         },
                         scoreEntries = scoreEntries,
                         scoreManagementMessage = scoreManagementMessage,
@@ -144,6 +160,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshState()
+    }
+
+    override fun onStop() {
+        permissionDialogDismissedInCurrentForeground = false
+        super.onStop()
     }
 
     private fun refreshState() {
@@ -410,6 +431,9 @@ private fun MainScreen(
     onOpenPlaybackConfig: () -> Unit,
     onBackHome: () -> Unit,
     onGrantOverlay: () -> Unit,
+    onGrantAccessibility: () -> Unit,
+    permissionDialogDismissed: Boolean,
+    onDismissPermissionGuide: () -> Unit,
     scoreEntries: List<ScoreEntry>,
     scoreManagementMessage: String?,
     isCreatingScore: Boolean,
@@ -447,6 +471,14 @@ private fun MainScreen(
             }
         )
     }
+    if (PermissionGuideController.shouldShowPermissionDialog(state, permissionDialogDismissed)) {
+        PermissionGuideDialog(
+            state = state,
+            onGrantOverlay = onGrantOverlay,
+            onGrantAccessibility = onGrantAccessibility,
+            onDismiss = onDismissPermissionGuide
+        )
+    }
 
     when (state.page) {
         MainPage.HOME -> MainHomeScreen(
@@ -455,6 +487,7 @@ private fun MainScreen(
             onOpenScoreManagement = onOpenScoreManagement,
             onOpenPlaybackConfig = onOpenPlaybackConfig,
             onGrantOverlay = onGrantOverlay,
+            onGrantAccessibility = onGrantAccessibility,
             onPreload = onPreload,
             onStartOverlay = onStartOverlay
         )
@@ -485,6 +518,110 @@ private fun MainScreen(
 }
 
 @Composable
+private fun PermissionGuideDialog(
+    state: MainScreenState,
+    onGrantOverlay: () -> Unit,
+    onGrantAccessibility: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val items = PermissionGuideController.permissionItems(state)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("完成演奏前的权限设置") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("CuSAGL 需要以下权限才能在游戏中显示控制面板并注入触控。")
+                items.forEach { item ->
+                    Text("${item.title}：${item.description}")
+                }
+            }
+        },
+        confirmButton = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (items.any { it.action == PermissionGuideAction.OVERLAY }) {
+                    TextButton(onClick = onGrantOverlay) {
+                        Text("去开启悬浮窗")
+                    }
+                }
+                if (items.any { it.action == PermissionGuideAction.ACCESSIBILITY }) {
+                    TextButton(onClick = onGrantAccessibility) {
+                        Text("去开启无障碍")
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("稍后")
+            }
+        }
+    )
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun PageTitle(title: String, subtitle: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageText(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(12.dp),
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+private fun ErrorText(message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(12.dp),
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
 private fun ScoreManagementScreen(
     entries: List<ScoreEntry>,
     message: String?,
@@ -506,16 +643,25 @@ private fun ScoreManagementScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("曲谱管理")
+        PageTitle(
+            title = "曲谱管理",
+            subtitle = "导入 JSON 曲谱，或手动创建一份可预加载的曲谱。"
+        )
         if (message != null) {
-            Text(message)
+            MessageText(message)
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = onImportScore) {
+        SectionCard("曲谱来源") {
+            Button(
+                onClick = onImportScore,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("导入 JSON")
             }
-            OutlinedButton(onClick = onStartCreate) {
+            OutlinedButton(
+                onClick = onStartCreate,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("新建曲谱")
             }
         }
@@ -530,9 +676,10 @@ private fun ScoreManagementScreen(
         }
 
         HorizontalDivider()
+        Text("已存储曲谱", style = MaterialTheme.typography.titleMedium)
 
         if (entries.isEmpty()) {
-            Text("没有已存储的曲谱。")
+            MessageText("没有已存储的曲谱。")
         } else {
             entries.forEach { entry ->
                 ScoreEntryCard(
@@ -542,7 +689,10 @@ private fun ScoreManagementScreen(
             }
         }
 
-        Button(onClick = onBackHome) {
+        OutlinedButton(
+            onClick = onBackHome,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("返回主页面")
         }
     }
@@ -560,7 +710,7 @@ private fun ManualScoreForm(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("新建曲谱")
+            Text("新建曲谱", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
                 value = draft.name,
                 onValueChange = { onDraftChange(draft.copy(name = it)) },
@@ -616,11 +766,17 @@ private fun ManualScoreForm(
                 minLines = 6,
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = onSave) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("保存")
                 }
-                OutlinedButton(onClick = onCancel) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("取消")
                 }
             }
@@ -638,10 +794,16 @@ private fun ScoreEntryCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(entry.title)
-            Text("文件：${entry.storageName}.json")
-            Text(if (entry.hasCache) "缓存：已生成" else "缓存：未生成")
-            OutlinedButton(onClick = onDelete) {
+            Text(entry.title, style = MaterialTheme.typography.titleMedium)
+            Text("文件：${entry.storageName}.json", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (entry.hasCache) "缓存：已生成" else "缓存：未生成",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(
+                onClick = onDelete,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("删除")
             }
         }
@@ -665,20 +827,26 @@ private fun PlaybackConfigScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("播放配置")
+        PageTitle(
+            title = "播放配置",
+            subtitle = "设置曲谱、队列、定时启动和循环参数。"
+        )
         if (message != null) {
-            Text(message)
+            MessageText(message)
         }
-        Text("当前可用曲谱：${entries.size} 首")
+        Text("当前可用曲谱：${entries.size} 首", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("播放模式")
+                Text("播放模式", style = MaterialTheme.typography.titleMedium)
                 PlaybackConfigMode.allModes.forEach { mode ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         RadioButton(
                             selected = draft.mode == mode,
                             onClick = { onDraftChange(draft.copy(mode = mode)) }
@@ -694,7 +862,7 @@ private fun PlaybackConfigScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("曲谱")
+                Text("曲谱", style = MaterialTheme.typography.titleMedium)
                 if (entries.isEmpty()) {
                     Text("没有已存储的曲谱。请先进入曲谱管理导入或创建曲谱。")
                 } else if (draft.mode.isQueueMode()) {
@@ -707,14 +875,21 @@ private fun PlaybackConfigScreen(
                     )
                 } else {
                     entries.forEach { entry ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             RadioButton(
                                 selected = draft.selectedScoreName == entry.storageName,
                                 onClick = { onDraftChange(draft.copy(selectedScoreName = entry.storageName)) }
                             )
                             Column {
-                                Text(entry.title)
-                                Text(entry.storageName)
+                                Text(entry.title, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    entry.storageName,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                         }
                     }
@@ -727,7 +902,7 @@ private fun PlaybackConfigScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("定时与间隔")
+                Text("定时与间隔", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(
                     value = draft.startTimeText,
                     onValueChange = { onDraftChange(draft.copy(startTimeText = it)) },
@@ -769,15 +944,28 @@ private fun PlaybackConfigScreen(
                     checked = draft.debugEnabled,
                     onCheckedChange = { onDraftChange(draft.copy(debugEnabled = it)) }
                 )
-                Text("调试模式")
+                Column {
+                    Text("调试模式", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "当前仅保存配置，不改变日志输出。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = onApply) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onApply,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("保存并应用")
             }
-            OutlinedButton(onClick = onBackHome) {
+            OutlinedButton(
+                onClick = onBackHome,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("返回主页面")
             }
         }
@@ -791,9 +979,12 @@ private fun MainHomeScreen(
     onOpenScoreManagement: () -> Unit,
     onOpenPlaybackConfig: () -> Unit,
     onGrantOverlay: () -> Unit,
+    onGrantAccessibility: () -> Unit,
     onPreload: () -> Unit,
     onStartOverlay: () -> Unit
 ) {
+    val permissionItems = PermissionGuideController.permissionItems(state)
+    val blockers = PermissionGuideController.preparationBlockers(state)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -801,35 +992,81 @@ private fun MainHomeScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("CuSAGL 主页面")
-        Text("当前曲谱：${state.firstScoreName ?: "没有可用曲谱"}")
-        Text("播放配置：${state.playbackConfigSummary}")
-        Text("配置队列：${state.playbackQueueSize} 首")
-        Text(if (state.isCacheReady) "配置队列缓存：已预加载" else "配置队列缓存：未预加载")
-        Text(if (state.hasOverlayPermission) "悬浮窗权限：已授予" else "悬浮窗权限：未授予")
-        Text(if (state.hasAccessibility) "无障碍服务：已连接" else "无障碍服务：未连接")
+        PageTitle(
+            title = "CuSAGL",
+            subtitle = "整理曲谱、预加载缓存，然后进入悬浮窗演奏。"
+        )
         if (state.errorMessage != null) {
-            Text("错误：${state.errorMessage}")
+            ErrorText("错误：${state.errorMessage}")
         }
 
-        HorizontalDivider()
+        SectionCard("播放准备") {
+            Text("当前曲谱：${state.firstScoreName ?: "没有可用曲谱"}")
+            Text("播放配置：${state.playbackConfigSummary}")
+            Text("配置队列：${state.playbackQueueSize} 首")
+            Text(if (state.isCacheReady) "队列缓存：已预加载" else "队列缓存：未预加载")
+        }
 
-        OutlinedButton(onClick = onOpenScoreManagement) {
-            Text("曲谱管理")
-        }
-        OutlinedButton(onClick = onOpenPlaybackConfig) {
-            Text("自定义播放配置")
-        }
-        if (!state.hasOverlayPermission) {
-            Button(onClick = onGrantOverlay) {
-                Text("授予悬浮窗权限")
+        SectionCard("权限状态") {
+            if (permissionItems.isEmpty()) {
+                Text("悬浮窗和无障碍服务均已就绪。")
+            } else {
+                permissionItems.forEach { item ->
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(item.title, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = item.description,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = when (item.action) {
+                                PermissionGuideAction.OVERLAY -> onGrantOverlay
+                                PermissionGuideAction.ACCESSIBILITY -> onGrantAccessibility
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(item.buttonLabel)
+                        }
+                    }
+                }
             }
         }
-        Button(onClick = onPreload, enabled = state.canPreload) {
-            Text(if (state.isLoading) "正在预加载" else "预加载曲谱")
+
+        SectionCard("主要操作") {
+            OutlinedButton(
+                onClick = onOpenScoreManagement,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("曲谱管理")
+            }
+            OutlinedButton(
+                onClick = onOpenPlaybackConfig,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("自定义播放配置")
+            }
+            Button(
+                onClick = onPreload,
+                enabled = state.canPreload,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.isLoading) "正在预加载" else "预加载曲谱")
+            }
+            Button(
+                onClick = onStartOverlay,
+                enabled = state.canPreparePlayback,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("准备演奏")
+            }
         }
-        Button(onClick = onStartOverlay, enabled = state.canPreparePlayback) {
-            Text("准备演奏")
+
+        if (blockers.isNotEmpty()) {
+            SectionCard("准备演奏还需要") {
+                blockers.forEach { reason ->
+                    Text(reason, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
     }
 }

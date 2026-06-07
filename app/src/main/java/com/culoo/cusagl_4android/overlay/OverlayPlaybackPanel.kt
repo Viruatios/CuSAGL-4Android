@@ -52,7 +52,7 @@ fun OverlayPlaybackPanel(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
                 .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = snapshot.currentTrackName ?: "未选择曲谱",
@@ -60,7 +60,8 @@ fun OverlayPlaybackPanel(
             )
             Text(
                 text = stateLabel(snapshot.state),
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             snapshot.lastError?.let {
                 Text(
@@ -69,27 +70,51 @@ fun OverlayPlaybackPanel(
                     style = MaterialTheme.typography.labelSmall
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                TextButton(onClick = onPrevious, enabled = snapshot.canPrevious) {
-                    Text("上一首")
-                }
-                if (snapshot.state == PlaybackState.PLAYING) {
-                    Button(onClick = onPause) {
-                        Text("暂停")
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (snapshot.state == PlaybackState.PLAYING) {
+                        Button(
+                            onClick = onPause,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("暂停")
+                        }
+                    } else {
+                        Button(
+                            onClick = onStart,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("开始")
+                        }
                     }
-                } else {
-                    Button(onClick = onStart) {
-                        Text("开始")
+                    TextButton(
+                        onClick = onStop,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("停止")
                     }
                 }
-                TextButton(onClick = onNext, enabled = snapshot.canNext) {
-                    Text("下一首")
-                }
-                TextButton(onClick = onStop) {
-                    Text("停止")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TextButton(
+                        onClick = onPrevious,
+                        enabled = snapshot.canPrevious,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("上一首")
+                    }
+                    TextButton(
+                        onClick = onNext,
+                        enabled = snapshot.canNext,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("下一首")
+                    }
                 }
             }
         }
