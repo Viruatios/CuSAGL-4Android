@@ -226,17 +226,6 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
         overlayWidth = width
         overlayHeight = height
         val bounds = windowManager.currentWindowMetrics.bounds
-        if (!OverlayPositionMapper.fitsSafeArea(
-                widthPx = bounds.width(),
-                heightPx = bounds.height(),
-                overlayHeightPx = height,
-                topInsetPx = topInset()
-            )
-        ) {
-            DefaultLogger.e(LogTags.OVERLAY, "Overlay panel does not fit above the key safety boundary")
-            shutdown()
-            return
-        }
         if (!positionInitialized) {
             val initial = OverlayPositionMapper.initialPosition(
                 widthPx = bounds.width(),
@@ -265,17 +254,6 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
         if (overlayWidth <= 0 || overlayHeight <= 0) return
         val bounds = windowManager.currentWindowMetrics.bounds
         val topInset = topInset()
-        if (!OverlayPositionMapper.fitsSafeArea(
-                widthPx = bounds.width(),
-                heightPx = bounds.height(),
-                overlayHeightPx = overlayHeight,
-                topInsetPx = topInset
-            )
-        ) {
-            DefaultLogger.e(LogTags.OVERLAY, "Overlay panel no longer fits above the key safety boundary")
-            shutdown()
-            return
-        }
         val constrained = OverlayPositionMapper.constrain(
             requestedX = positionX.roundToInt(),
             requestedY = positionY.roundToInt(),
