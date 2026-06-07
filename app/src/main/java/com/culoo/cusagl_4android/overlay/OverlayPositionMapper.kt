@@ -57,15 +57,16 @@ object OverlayPositionMapper {
         val maxX = max(0, widthPx - overlayWidthPx)
         val safeBottomPx = safeBottomPx(widthPx, heightPx)
         val maxY = safeBottomPx - overlayHeightPx
-        if (maxY < topInsetPx) {
+        val minY = 0
+        if (maxY < minY) {
             return OverlayPosition(
                 x = ((widthPx - overlayWidthPx) / 2).coerceIn(0, maxX),
-                y = topInsetPx
+                y = minY
             )
         }
         return OverlayPosition(
             x = requestedX.coerceIn(0, maxX),
-            y = requestedY.coerceIn(topInsetPx, maxY)
+            y = requestedY.coerceIn(minY, maxY)
         )
     }
 
