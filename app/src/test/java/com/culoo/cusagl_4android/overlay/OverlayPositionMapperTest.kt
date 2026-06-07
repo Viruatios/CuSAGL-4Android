@@ -99,6 +99,22 @@ class OverlayPositionMapperTest {
         )
 
         assertEquals(760, position.x)
-        assertEquals(24, position.y)
+        assertEquals(0, position.y)
+    }
+
+    @Test
+    fun constrain_ignoresTopInsetAsUpperBoundary() {
+        val position = OverlayPositionMapper.constrain(
+            requestedX = 100,
+            requestedY = -50,
+            widthPx = 1920,
+            heightPx = 1080,
+            overlayWidthPx = 400,
+            overlayHeightPx = 180,
+            topInsetPx = 80
+        )
+
+        assertEquals(100, position.x)
+        assertEquals(0, position.y)
     }
 }
