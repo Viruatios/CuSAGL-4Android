@@ -17,13 +17,13 @@ data class ScoreEntry(
 
 data class ManualScoreDraft(
     val name: String = "",
-    val author: String = "指尖灬旋律丿",
-    val instrument: String = "风物之诗琴",
-    val description: String = "无",
+    val author: String = "",
+    val instrument: String = "",
+    val description: String = "",
     val bpm: String = "",
-    val timeSignature: String = "4/4",
-    val composer: String = "HoYo-Mix",
-    val arranger: String = "HoYo-Mix",
+    val timeSignature: String = "",
+    val composer: String = "",
+    val arranger: String = "",
     val notes: String = ""
 )
 

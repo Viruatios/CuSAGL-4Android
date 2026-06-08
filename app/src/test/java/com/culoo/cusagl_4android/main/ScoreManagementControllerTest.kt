@@ -12,6 +12,21 @@ import java.nio.file.Files
 
 class ScoreManagementControllerTest {
     @Test
+    fun manualScoreDraft_defaultsToEmptyFields() {
+        val draft = ManualScoreDraft()
+
+        assertEquals("", draft.name)
+        assertEquals("", draft.author)
+        assertEquals("", draft.instrument)
+        assertEquals("", draft.description)
+        assertEquals("", draft.bpm)
+        assertEquals("", draft.timeSignature)
+        assertEquals("", draft.composer)
+        assertEquals("", draft.arranger)
+        assertEquals("", draft.notes)
+    }
+
+    @Test
     fun listScores_emptyDirectory_returnsEmptyList() {
         val tempDir = Files.createTempDirectory("cusagl-score-empty").toFile()
 
