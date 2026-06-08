@@ -65,7 +65,6 @@ class MainActivity : ComponentActivity() {
     private var screenState by mutableStateOf(MainScreenState())
     private var scoreEntries by mutableStateOf<List<ScoreEntry>>(emptyList())
     private var scoreManagementMessage by mutableStateOf<String?>(null)
-    private var isCreatingScore by mutableStateOf(false)
     private var manualDraft by mutableStateOf(ManualScoreDraft())
     private var pendingSave by mutableStateOf<PendingScoreSave?>(null)
     private var playbackDraft by mutableStateOf(PlaybackConfigDraft())
@@ -87,7 +86,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             CuSAGL4AndroidTheme {
                 BackHandler(enabled = screenState.page != MainPage.HOME) {
-                    screenState = screenState.copy(page = MainPage.HOME)
+                    if (screenState.page == MainPage.MANUAL_SCORE_CREATE) {
+                        cancelManualScoreCreation()
+                    } else {
+                        screenState = screenState.copy(page = MainPage.HOME)
+                    }
                 }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MainScreen(
@@ -118,20 +121,18 @@ class MainActivity : ComponentActivity() {
                         },
                         scoreEntries = scoreEntries,
                         scoreManagementMessage = scoreManagementMessage,
-                        isCreatingScore = isCreatingScore,
                         manualDraft = manualDraft,
                         pendingSave = pendingSave,
                         onImportScore = {
                             openScoreDocumentLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
                         },
                         onStartCreateScore = {
-                            isCreatingScore = true
-                            scoreManagementMessage = null
-                        },
-                        onCancelCreateScore = {
-                            isCreatingScore = false
                             manualDraft = ManualScoreDraft()
+                            pendingSave = null
+                            scoreManagementMessage = null
+                            screenState = screenState.copy(page = MainPage.MANUAL_SCORE_CREATE)
                         },
+                        onCancelCreateScore = ::cancelManualScoreCreation,
                         onManualDraftChange = { manualDraft = it },
                         onSaveManualScore = ::saveManualScore,
                         onDeleteScore = ::deleteScore,
@@ -165,6 +166,12 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         permissionDialogDismissedInCurrentForeground = false
         super.onStop()
+    }
+
+    private fun cancelManualScoreCreation() {
+        manualDraft = ManualScoreDraft()
+        pendingSave = null
+        screenState = screenState.copy(page = MainPage.SCORE_MANAGEMENT)
     }
 
     private fun refreshState() {
@@ -365,9 +372,9 @@ class MainActivity : ComponentActivity() {
             is ScoreSaveResult.Success -> {
                 scoreManagementMessage = "已保存曲谱：${result.storageName}"
                 pendingSave = null
-                isCreatingScore = false
                 manualDraft = ManualScoreDraft()
                 refreshAfterScoreManagementChange()
+                screenState = screenState.copy(page = MainPage.SCORE_MANAGEMENT)
             }
             is ScoreSaveResult.NeedsOverwrite -> {
                 pendingSave = pending.withOverwriteTitle(result.title)
@@ -436,7 +443,6 @@ private fun MainScreen(
     onDismissPermissionGuide: () -> Unit,
     scoreEntries: List<ScoreEntry>,
     scoreManagementMessage: String?,
-    isCreatingScore: Boolean,
     manualDraft: ManualScoreDraft,
     pendingSave: PendingScoreSave?,
     playbackDraft: PlaybackConfigDraft,
@@ -494,16 +500,19 @@ private fun MainScreen(
         MainPage.SCORE_MANAGEMENT -> ScoreManagementScreen(
             entries = scoreEntries,
             message = scoreManagementMessage,
-            isCreating = isCreatingScore,
-            draft = manualDraft,
             modifier = modifier,
             onImportScore = onImportScore,
             onStartCreate = onStartCreateScore,
-            onCancelCreate = onCancelCreateScore,
-            onDraftChange = onManualDraftChange,
-            onSaveManualScore = onSaveManualScore,
             onDeleteScore = onDeleteScore,
             onBackHome = onBackHome
+        )
+        MainPage.MANUAL_SCORE_CREATE -> ManualScoreCreateScreen(
+            message = scoreManagementMessage,
+            draft = manualDraft,
+            modifier = modifier,
+            onDraftChange = onManualDraftChange,
+            onSave = onSaveManualScore,
+            onCancel = onCancelCreateScore
         )
         MainPage.PLAYBACK_CONFIG -> PlaybackConfigScreen(
             entries = scoreEntries,
@@ -625,14 +634,9 @@ private fun ErrorText(message: String) {
 private fun ScoreManagementScreen(
     entries: List<ScoreEntry>,
     message: String?,
-    isCreating: Boolean,
-    draft: ManualScoreDraft,
     modifier: Modifier = Modifier,
     onImportScore: () -> Unit,
     onStartCreate: () -> Unit,
-    onCancelCreate: () -> Unit,
-    onDraftChange: (ManualScoreDraft) -> Unit,
-    onSaveManualScore: () -> Unit,
     onDeleteScore: (String) -> Unit,
     onBackHome: () -> Unit
 ) {
@@ -666,15 +670,6 @@ private fun ScoreManagementScreen(
             }
         }
 
-        if (isCreating) {
-            ManualScoreForm(
-                draft = draft,
-                onDraftChange = onDraftChange,
-                onSave = onSaveManualScore,
-                onCancel = onCancelCreate
-            )
-        }
-
         HorizontalDivider()
         Text("已存储曲谱", style = MaterialTheme.typography.titleMedium)
 
@@ -695,6 +690,38 @@ private fun ScoreManagementScreen(
         ) {
             Text("返回主页面")
         }
+    }
+}
+
+@Composable
+private fun ManualScoreCreateScreen(
+    message: String?,
+    draft: ManualScoreDraft,
+    modifier: Modifier = Modifier,
+    onDraftChange: (ManualScoreDraft) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        PageTitle(
+            title = "新建曲谱",
+            subtitle = "手动输入曲谱字段，保存前会进行严格校验。"
+        )
+        if (message != null) {
+            MessageText(message)
+        }
+        ManualScoreForm(
+            draft = draft,
+            onDraftChange = onDraftChange,
+            onSave = onSave,
+            onCancel = onCancel
+        )
     }
 }
 

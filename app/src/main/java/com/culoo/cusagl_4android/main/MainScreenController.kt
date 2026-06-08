@@ -10,6 +10,7 @@ import java.io.File
 enum class MainPage {
     HOME,
     SCORE_MANAGEMENT,
+    MANUAL_SCORE_CREATE,
     PLAYBACK_CONFIG
 }
 
