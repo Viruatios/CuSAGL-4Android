@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -24,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -38,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -1189,13 +1192,13 @@ private fun MainHomeScreen(
                 subtitle = "整理曲谱、预加载缓存，然后进入悬浮窗演奏。",
                 modifier = Modifier.weight(1f)
             )
-            TextButton(
+            IconButton(
                 onClick = onOpenAbout,
                 modifier = Modifier
                     .size(48.dp)
                     .semantics { contentDescription = "关于" }
             ) {
-                Text("···")
+                ThreeDotMenuIcon()
             }
         }
         if (state.errorMessage != null) {
@@ -1349,6 +1352,20 @@ private fun AboutScreen(
         ) {
             Text("返回主页面")
         }
+    }
+}
+
+@Composable
+private fun ThreeDotMenuIcon(modifier: Modifier = Modifier) {
+    val dotColor = MaterialTheme.colorScheme.onSurface
+    Canvas(modifier = modifier.size(24.dp)) {
+        val radius = 2.5.dp.toPx()
+        val centerY = size.height / 2f
+        val gap = 7.dp.toPx()
+        val centerX = size.width / 2f
+        drawCircle(dotColor, radius, Offset(centerX - gap, centerY))
+        drawCircle(dotColor, radius, Offset(centerX, centerY))
+        drawCircle(dotColor, radius, Offset(centerX + gap, centerY))
     }
 }
 
