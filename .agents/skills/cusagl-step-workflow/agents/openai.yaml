@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "CuSAGL Step Workflow"
+  short_description: "Guide CuSAGL step and bugfix workflow"
+  default_prompt: "Use $cusagl-step-workflow to plan and complete the next CuSAGL step or bugfix."
