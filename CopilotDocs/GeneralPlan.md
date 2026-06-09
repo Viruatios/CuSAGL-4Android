@@ -36,4 +36,3 @@
 - 问题修复需要作为 `bugfixX` 记录；修复计划落到 `CopilotDocs/bugfixX/plan.md`。
 - 仅在项目结构或关键接口发生重大变化时更新 `AGENTS.md`。
 - 每完成一个 stepX 或 bugfixX 的实现后，补写 `README.md` 的“开发节点的记录”，并更新版本号。
-
