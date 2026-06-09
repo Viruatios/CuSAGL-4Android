@@ -24,7 +24,7 @@ class AboutControllerTest {
         assertTrue(result is UpdateCheckResult.UpdateAvailable)
         val release = (result as UpdateCheckResult.UpdateAvailable).release
         assertEquals("v1.0.2", release.tagName)
-        assertEquals("https://example.com/apk-debug.apk", release.apkDownloadUrl)
+        assertEquals("https://example.com/app-debug.apk", release.apkDownloadUrl)
     }
 
     @Test
@@ -84,8 +84,8 @@ class AboutControllerTest {
         tempFile.writeText("partial")
 
         assertEquals("updates", updateDir.name)
-        assertEquals("apk-debug.apk", apkFile.name)
-        assertEquals("apk-debug.apk.part", tempFile.name)
+        assertEquals("app-debug.apk", apkFile.name)
+        assertEquals("app-debug.apk.part", tempFile.name)
 
         AboutController.clearUpdateCache(cacheDir)
 
@@ -99,8 +99,8 @@ class AboutControllerTest {
               "html_url": "https://github.com/Viruatios/CuSAGL-4Android/releases/tag/$tag",
               "assets": [
                 {
-                  "name": "apk-debug.apk",
-                  "browser_download_url": "https://example.com/apk-debug.apk"
+                  "name": "app-debug.apk",
+                  "browser_download_url": "https://example.com/app-debug.apk"
                 }
               ]
             }

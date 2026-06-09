@@ -20,7 +20,7 @@ sealed class UpdateCheckResult {
 object AboutController {
     const val REPOSITORY_URL = "https://github.com/Viruatios/CuSAGL-4Android"
     const val LATEST_RELEASE_API_URL = "https://api.github.com/repos/Viruatios/CuSAGL-4Android/releases/latest"
-    const val APK_ASSET_NAME = "apk-debug.apk"
+    const val APK_ASSET_NAME = "app-debug.apk"
 
     private const val UPDATE_DIR_NAME = "updates"
     private const val TEMP_APK_NAME = "$APK_ASSET_NAME.part"

@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -1279,6 +1280,7 @@ private fun AboutScreen(
     onInstallUpdate: () -> Unit,
     onBackHome: () -> Unit
 ) {
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -1299,7 +1301,12 @@ private fun AboutScreen(
 
         SectionCard("应用信息") {
             Text("当前版本：${state.currentVersion}")
-            Text("仓库地址：${state.repositoryUrl}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(
+                onClick = { uriHandler.openUri(state.repositoryUrl) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("仓库地址：${state.repositoryUrl}")
+            }
             if (state.latestTag != null) {
                 Text("最新版本：${state.latestTag}")
             }
