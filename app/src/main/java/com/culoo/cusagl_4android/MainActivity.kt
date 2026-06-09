@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -1289,8 +1290,8 @@ private fun AboutScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         PageTitle(
-            title = "关于",
-            subtitle = "查看版本信息，并从 GitHub Release 检查更新。"
+            title = "关于SAGL",
+            subtitle = "Simplified Automatic Genshin Lyre for Android"
         )
         if (state.message != null) {
             MessageText(state.message)
@@ -1300,19 +1301,14 @@ private fun AboutScreen(
         }
 
         SectionCard("应用信息") {
+            Text("注意：CuSAGL Mobile 是一个免费软件，不带任何担保。任何由于使用本软件造成的后果，应当由用户自行承担。")
             Text("当前版本：${state.currentVersion}")
-            OutlinedButton(
-                onClick = { uriHandler.openUri(state.repositoryUrl) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("仓库地址：${state.repositoryUrl}")
-            }
-            if (state.latestTag != null) {
-                Text("最新版本：${state.latestTag}")
-            }
-            if (state.releaseUrl != null) {
-                Text("Release：${state.releaseUrl}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Text(
+                "项目地址：${state.repositoryUrl}",
+                modifier= Modifier.clickable() {
+                    uriHandler.openUri(state.repositoryUrl)
+                }
+            )
         }
 
         SectionCard("检查更新") {
@@ -1330,11 +1326,21 @@ private fun AboutScreen(
             ) {
                 Text(if (state.isDownloading) "正在下载..." else "下载并安装更新")
             }
-            Text(
-                "更新包会临时缓存到应用私有目录；打开安装器后，返回应用时会清理缓存。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
+        }
+
+        if(state.latestTag != null){
+            SectionCard("检测到的最新版本") {
+                Text("最新版本：${state.latestTag}")
+                if (state.releaseUrl != null) {
+                    Text(
+                        "Release：${state.releaseUrl}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable() {
+                            uriHandler.openUri(state.releaseUrl)
+                        }
+                    )
+                }
+            }
         }
 
         OutlinedButton(
