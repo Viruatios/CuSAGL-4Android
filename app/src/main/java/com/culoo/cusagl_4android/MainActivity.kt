@@ -1,5 +1,6 @@
 package com.culoo.cusagl_4android
 
+import android.content.Intent
 import android.os.Bundle
 import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -33,11 +35,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.culoo.cusagl_4android.accessibility.AccessibilityPermission
 import com.culoo.cusagl_4android.accessibility.AccessibilityServiceBridge
+import com.culoo.cusagl_4android.main.AboutController
 import com.culoo.cusagl_4android.main.MainPage
 import com.culoo.cusagl_4android.main.MainScreenController
 import com.culoo.cusagl_4android.main.MainScreenState
@@ -53,6 +60,7 @@ import com.culoo.cusagl_4android.main.ScoreDeleteResult
 import com.culoo.cusagl_4android.main.ScoreEntry
 import com.culoo.cusagl_4android.main.ScoreManagementController
 import com.culoo.cusagl_4android.main.ScoreSaveResult
+import com.culoo.cusagl_4android.main.UpdateCheckResult
 import com.culoo.cusagl_4android.overlay.OverlayPermission
 import com.culoo.cusagl_4android.overlay.OverlayPlaybackService
 import com.culoo.cusagl_4android.overlay.PlaybackSessionRequest
@@ -71,6 +79,8 @@ class MainActivity : ComponentActivity() {
     private var playbackConfigMessage by mutableStateOf<String?>(null)
     private var playbackRequest by mutableStateOf<PlaybackSessionRequest?>(null)
     private var permissionDialogDismissedInCurrentForeground by mutableStateOf(false)
+    private var aboutState by mutableStateOf(AboutUiState(currentVersion = BuildConfig.VERSION_NAME))
+    private var updateInstallStarted = false
 
     private val openScoreDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -82,6 +92,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AboutController.clearUpdateCache(cacheDir)
         enableEdgeToEdge()
         setContent {
             CuSAGL4AndroidTheme {
@@ -103,6 +114,9 @@ class MainActivity : ComponentActivity() {
                         onOpenPlaybackConfig = {
                             screenState = screenState.copy(page = MainPage.PLAYBACK_CONFIG)
                             refreshPlaybackConfig()
+                        },
+                        onOpenAbout = {
+                            screenState = screenState.copy(page = MainPage.ABOUT)
                         },
                         onBackHome = {
                             screenState = screenState.copy(page = MainPage.HOME)
@@ -145,6 +159,9 @@ class MainActivity : ComponentActivity() {
                         playbackConfigMessage = playbackConfigMessage,
                         onPlaybackDraftChange = { playbackDraft = it },
                         onApplyPlaybackConfig = ::applyPlaybackConfig,
+                        aboutState = aboutState,
+                        onCheckUpdate = ::checkForUpdate,
+                        onInstallUpdate = ::downloadAndInstallUpdate,
                         onPreload = ::preloadScore,
                         onStartOverlay = {
                             val request = playbackRequest ?: return@MainScreen
@@ -160,6 +177,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (updateInstallStarted) {
+            AboutController.clearUpdateCache(cacheDir)
+            updateInstallStarted = false
+            aboutState = aboutState.copy(
+                isDownloading = false,
+                message = "已返回应用。如需重新安装，请重新下载更新包。",
+                errorMessage = null
+            )
+        }
         refreshState()
     }
 
@@ -275,6 +301,103 @@ class MainActivity : ComponentActivity() {
                     playbackConfigMessage = result.message
                 }
             }
+        }
+    }
+
+    private fun checkForUpdate() {
+        val currentVersion = aboutState.currentVersion
+        aboutState = aboutState.copy(
+            isChecking = true,
+            message = null,
+            errorMessage = null
+        )
+        lifecycleScope.launch {
+            when (val result = withContext(Dispatchers.IO) {
+                AboutController.fetchLatestRelease(currentVersion)
+            }) {
+                is UpdateCheckResult.UpdateAvailable -> {
+                    aboutState = aboutState.copy(
+                        isChecking = false,
+                        latestTag = result.release.tagName,
+                        releaseUrl = result.release.releaseUrl,
+                        apkDownloadUrl = result.release.apkDownloadUrl,
+                        hasUpdate = true,
+                        message = "发现新版本：${result.release.tagName}",
+                        errorMessage = null
+                    )
+                }
+                is UpdateCheckResult.UpToDate -> {
+                    aboutState = aboutState.copy(
+                        isChecking = false,
+                        latestTag = result.release.tagName,
+                        releaseUrl = result.release.releaseUrl,
+                        apkDownloadUrl = result.release.apkDownloadUrl,
+                        hasUpdate = false,
+                        message = "当前已是最新版本：${currentVersion}",
+                        errorMessage = null
+                    )
+                }
+                is UpdateCheckResult.Failure -> {
+                    aboutState = aboutState.copy(
+                        isChecking = false,
+                        hasUpdate = false,
+                        message = null,
+                        errorMessage = result.message
+                    )
+                }
+            }
+        }
+    }
+
+    private fun downloadAndInstallUpdate() {
+        val downloadUrl = aboutState.apkDownloadUrl ?: return
+        aboutState = aboutState.copy(
+            isDownloading = true,
+            message = "正在下载更新包...",
+            errorMessage = null
+        )
+        lifecycleScope.launch {
+            val apkFile = try {
+                withContext(Dispatchers.IO) {
+                    AboutController.downloadApk(downloadUrl, cacheDir)
+                }
+            } catch (ex: Exception) {
+                aboutState = aboutState.copy(
+                    isDownloading = false,
+                    message = null,
+                    errorMessage = "下载更新失败：${ex.message ?: "未知错误"}"
+                )
+                return@launch
+            }
+            startApkInstall(apkFile)
+        }
+    }
+
+    private fun startApkInstall(apkFile: java.io.File) {
+        val uri = FileProvider.getUriForFile(
+            this,
+            "${packageName}.fileprovider",
+            apkFile
+        )
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            updateInstallStarted = true
+            aboutState = aboutState.copy(
+                isDownloading = false,
+                message = "更新包已下载，正在打开系统安装器。",
+                errorMessage = null
+            )
+            startActivity(intent)
+        } catch (ex: Exception) {
+            updateInstallStarted = false
+            AboutController.clearUpdateCache(cacheDir)
+            aboutState = aboutState.copy(
+                isDownloading = false,
+                message = null,
+                errorMessage = "无法打开系统安装器：${ex.message ?: "未知错误"}"
+            )
         }
     }
 
@@ -430,12 +553,29 @@ private sealed class PendingScoreSave(open val overwriteTitle: String? = null) {
     }
 }
 
+private data class AboutUiState(
+    val currentVersion: String,
+    val repositoryUrl: String = AboutController.REPOSITORY_URL,
+    val isChecking: Boolean = false,
+    val isDownloading: Boolean = false,
+    val latestTag: String? = null,
+    val releaseUrl: String? = null,
+    val apkDownloadUrl: String? = null,
+    val hasUpdate: Boolean = false,
+    val message: String? = null,
+    val errorMessage: String? = null
+) {
+    val canInstallUpdate: Boolean
+        get() = hasUpdate && apkDownloadUrl != null && !isChecking && !isDownloading
+}
+
 @Composable
 private fun MainScreen(
     state: MainScreenState,
     modifier: Modifier = Modifier,
     onOpenScoreManagement: () -> Unit,
     onOpenPlaybackConfig: () -> Unit,
+    onOpenAbout: () -> Unit,
     onBackHome: () -> Unit,
     onGrantOverlay: () -> Unit,
     onGrantAccessibility: () -> Unit,
@@ -457,6 +597,9 @@ private fun MainScreen(
     onDismissOverwrite: () -> Unit,
     onPlaybackDraftChange: (PlaybackConfigDraft) -> Unit,
     onApplyPlaybackConfig: () -> Unit,
+    aboutState: AboutUiState,
+    onCheckUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
     onPreload: () -> Unit,
     onStartOverlay: () -> Unit
 ) {
@@ -492,6 +635,7 @@ private fun MainScreen(
             modifier = modifier,
             onOpenScoreManagement = onOpenScoreManagement,
             onOpenPlaybackConfig = onOpenPlaybackConfig,
+            onOpenAbout = onOpenAbout,
             onGrantOverlay = onGrantOverlay,
             onGrantAccessibility = onGrantAccessibility,
             onPreload = onPreload,
@@ -521,6 +665,13 @@ private fun MainScreen(
             modifier = modifier,
             onDraftChange = onPlaybackDraftChange,
             onApply = onApplyPlaybackConfig,
+            onBackHome = onBackHome
+        )
+        MainPage.ABOUT -> AboutScreen(
+            state = aboutState,
+            modifier = modifier,
+            onCheckUpdate = onCheckUpdate,
+            onInstallUpdate = onInstallUpdate,
             onBackHome = onBackHome
         )
     }
@@ -585,8 +736,15 @@ private fun SectionCard(
 }
 
 @Composable
-private fun PageTitle(title: String, subtitle: String? = null) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+private fun PageTitle(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text(title, style = MaterialTheme.typography.headlineSmall)
         if (subtitle != null) {
             Text(
@@ -1005,6 +1163,7 @@ private fun MainHomeScreen(
     modifier: Modifier = Modifier,
     onOpenScoreManagement: () -> Unit,
     onOpenPlaybackConfig: () -> Unit,
+    onOpenAbout: () -> Unit,
     onGrantOverlay: () -> Unit,
     onGrantAccessibility: () -> Unit,
     onPreload: () -> Unit,
@@ -1019,10 +1178,24 @@ private fun MainHomeScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        PageTitle(
-            title = "CuSAGL",
-            subtitle = "整理曲谱、预加载缓存，然后进入悬浮窗演奏。"
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            PageTitle(
+                title = "CuSAGL",
+                subtitle = "整理曲谱、预加载缓存，然后进入悬浮窗演奏。",
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                onClick = onOpenAbout,
+                modifier = Modifier
+                    .size(48.dp)
+                    .semantics { contentDescription = "关于" }
+            ) {
+                Text("···")
+            }
+        }
         if (state.errorMessage != null) {
             ErrorText("错误：${state.errorMessage}")
         }
@@ -1094,6 +1267,74 @@ private fun MainHomeScreen(
                     Text(reason, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AboutScreen(
+    state: AboutUiState,
+    modifier: Modifier = Modifier,
+    onCheckUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
+    onBackHome: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        PageTitle(
+            title = "关于",
+            subtitle = "查看版本信息，并从 GitHub Release 检查更新。"
+        )
+        if (state.message != null) {
+            MessageText(state.message)
+        }
+        if (state.errorMessage != null) {
+            ErrorText(state.errorMessage)
+        }
+
+        SectionCard("应用信息") {
+            Text("当前版本：${state.currentVersion}")
+            Text("仓库地址：${state.repositoryUrl}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (state.latestTag != null) {
+                Text("最新版本：${state.latestTag}")
+            }
+            if (state.releaseUrl != null) {
+                Text("Release：${state.releaseUrl}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        SectionCard("检查更新") {
+            Button(
+                onClick = onCheckUpdate,
+                enabled = !state.isChecking && !state.isDownloading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.isChecking) "正在检查..." else "检查更新")
+            }
+            Button(
+                onClick = onInstallUpdate,
+                enabled = state.canInstallUpdate,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.isDownloading) "正在下载..." else "下载并安装更新")
+            }
+            Text(
+                "更新包会临时缓存到应用私有目录；打开安装器后，返回应用时会清理缓存。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        OutlinedButton(
+            onClick = onBackHome,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("返回主页面")
         }
     }
 }
