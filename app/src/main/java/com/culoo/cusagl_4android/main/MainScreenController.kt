@@ -11,7 +11,8 @@ enum class MainPage {
     HOME,
     SCORE_MANAGEMENT,
     MANUAL_SCORE_CREATE,
-    PLAYBACK_CONFIG
+    PLAYBACK_CONFIG,
+    ABOUT
 }
 
 data class MainScreenState(
