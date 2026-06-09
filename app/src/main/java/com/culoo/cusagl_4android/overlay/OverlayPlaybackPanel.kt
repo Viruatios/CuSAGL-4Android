@@ -255,7 +255,7 @@ private fun StartPauseButton(
             modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
             contentPadding = PRIMARY_BUTTON_PADDING
         ) {
-            Text("暂停", style = MaterialTheme.typography.labelSmall)
+            Text("暂停", style = MaterialTheme.typography.labelMedium)
         }
     } else {
         Button(
@@ -263,7 +263,7 @@ private fun StartPauseButton(
             modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
             contentPadding = PRIMARY_BUTTON_PADDING
         ) {
-            Text("开始", style = MaterialTheme.typography.labelSmall)
+            Text("开始", style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -275,7 +275,7 @@ private fun StopButton(modifier: Modifier = Modifier, onStop: () -> Unit) {
         modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
         contentPadding = SECONDARY_BUTTON_PADDING
     ) {
-        Text("停止", style = MaterialTheme.typography.labelSmall)
+        Text("退出", style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -291,7 +291,7 @@ private fun PreviousButton(
         modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
         contentPadding = SECONDARY_BUTTON_PADDING
     ) {
-        Text("上一首", style = MaterialTheme.typography.labelSmall)
+        Text("上一首", style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -307,7 +307,7 @@ private fun NextButton(
         modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
         contentPadding = SECONDARY_BUTTON_PADDING
     ) {
-        Text("下一首", style = MaterialTheme.typography.labelSmall)
+        Text("下一首", style = MaterialTheme.typography.labelMedium)
     }
 }
 
