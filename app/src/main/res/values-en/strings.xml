@@ -67,6 +67,11 @@
     <string name="error_repeat_interval_non_negative">Repeat interval must be a non-negative integer</string>
     <string name="error_repeat_times_non_negative">Repeat count must be a non-negative integer</string>
     <string name="error_score_delete_failed">Failed to delete score: %1$s</string>
+    <string name="error_score_json_invalid_syntax">JSON format error near line %1$d, column %2$d</string>
+    <string name="error_score_json_notes_empty">Score content is empty</string>
+    <string name="error_score_json_notes_unparseable">Score content cannot be parsed. Check the notes field.</string>
+    <string name="error_score_json_score_name_empty">Score name is empty</string>
+    <string name="error_score_json_time_signature_invalid">Time signature is invalid. Use a format like 4/4.</string>
     <string name="error_score_json_validation_detail">Score JSON validation failed: %1$s field %2$s at %3$s</string>
     <string name="error_score_json_validation_failed">Score JSON validation failed</string>
     <string name="error_score_missing">Score does not exist: %1$s</string>

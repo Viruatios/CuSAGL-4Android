@@ -67,6 +67,11 @@
     <string name="error_repeat_interval_non_negative">循环间隔时间必须是非负整数</string>
     <string name="error_repeat_times_non_negative">循环执行次数必须是非负整数</string>
     <string name="error_score_delete_failed">删除曲谱失败：%1$s</string>
+    <string name="error_score_json_invalid_syntax">JSON 格式错误：第 %1$d 行，第 %2$d 列附近</string>
+    <string name="error_score_json_notes_empty">曲谱内容为空</string>
+    <string name="error_score_json_notes_unparseable">曲谱内容无法解析，请检查 notes 填写</string>
+    <string name="error_score_json_score_name_empty">曲谱名为空</string>
+    <string name="error_score_json_time_signature_invalid">拍号格式错误，请使用类似 4/4 的格式</string>
     <string name="error_score_json_validation_detail">曲谱 JSON 校验失败：%1$s 的 %2$s 位于 %3$s</string>
     <string name="error_score_json_validation_failed">曲谱 JSON 校验失败</string>
     <string name="error_score_missing">曲谱不存在：%1$s</string>

@@ -15,8 +15,8 @@ android {
         applicationId = "com.culoo.cusagl_4android"
         minSdk = 31
         targetSdk = 36
-        versionCode = 7
-        versionName = "v1.3.0"
+        versionCode = 8
+        versionName = "v1.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -51,18 +51,17 @@ object ScoreParser {
             JSONObject(text)
         } catch (ex: JSONException) {
             logger.e(LogTags.PARSE_FAIL, "Invalid score JSON: $source", ex)
-            return ScoreParseInternalResult.Failure(
-                validationFailure(source, "JSON", locationFromException(ex) ?: locationFromOffset(text, 0))
-            )
+            val location = locationFromException(ex) ?: locationFromOffset(text, 0)
+            return ScoreParseInternalResult.Failure(jsonSyntaxFailure(location))
         } catch (ex: Exception) {
             logger.e(LogTags.PARSE_FAIL, "Invalid score JSON: $source", ex)
-            return ScoreParseInternalResult.Failure(validationFailure(source, "JSON", null))
+            return ScoreParseInternalResult.Failure(jsonSyntaxFailure(locationFromOffset(text, 0)))
         }
 
         val notesText = if (json.has("notes")) json.optString("notes") else null
         if (notesText.isNullOrBlank()) {
             logger.e(LogTags.PARSE_FAIL, "Missing notes in score: $source")
-            return ScoreParseInternalResult.Failure(validationFailure(source, "notes", fieldLocation(text, "notes")))
+            return ScoreParseInternalResult.Failure(UiText.resource(R.string.error_score_json_notes_empty))
         }
 
         val name = json.optString("name", CoreConstants.DEFAULT_SCORE_NAME)
@@ -71,24 +70,22 @@ object ScoreParser {
         if (strict) {
             if (name.isBlank()) {
                 logger.e(LogTags.PARSE_FAIL, "Missing name in score: $source")
-                return ScoreParseInternalResult.Failure(validationFailure(source, "name", fieldLocation(text, "name")))
+                return ScoreParseInternalResult.Failure(UiText.resource(R.string.error_score_json_score_name_empty))
             }
             if (!isPositiveBpm(json.opt("bpm"))) {
                 logger.e(LogTags.PARSE_FAIL, "Invalid bpm in score: $source")
-                return ScoreParseInternalResult.Failure(validationFailure(source, "bpm", fieldLocation(text, "bpm")))
+                return ScoreParseInternalResult.Failure(UiText.resource(R.string.error_bpm_positive_integer))
             }
             if (!isValidTimeSignature(timeSignature)) {
                 logger.e(LogTags.PARSE_FAIL, "Invalid time signature in score: $source")
-                return ScoreParseInternalResult.Failure(
-                    validationFailure(source, "time_signature", fieldLocation(text, "time_signature"))
-                )
+                return ScoreParseInternalResult.Failure(UiText.resource(R.string.error_score_json_time_signature_invalid))
             }
         }
 
         val notes = parseNotes(notesText)
         if (strict && notes.isEmpty()) {
             logger.e(LogTags.PARSE_FAIL, "Empty parsed notes in score: $source")
-            return ScoreParseInternalResult.Failure(validationFailure(source, "notes", fieldLocation(text, "notes")))
+            return ScoreParseInternalResult.Failure(UiText.resource(R.string.error_score_json_notes_unparseable))
         }
 
         return ScoreParseInternalResult.Success(
@@ -201,11 +198,19 @@ object ScoreParser {
         return UiText.resource(R.string.error_score_json_validation_detail, source, field, locationText)
     }
 
+    private fun jsonSyntaxFailure(location: TextLocation): UiText {
+        return UiText.resource(R.string.error_score_json_invalid_syntax, location.line, location.column)
+    }
+
     private fun locationFromException(ex: JSONException): TextLocation? {
         val message = ex.message ?: return null
         val line = Regex("line\\s+(\\d+)").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
         val character = Regex("character\\s+(\\d+)").find(message)?.groupValues?.getOrNull(1)?.toIntOrNull()
-        return if (line != null && character != null) TextLocation(line, character) else null
+        return if (line != null && character != null) {
+            TextLocation(line.coerceAtLeast(1), character.coerceAtLeast(1))
+        } else {
+            null
+        }
     }
 
     private fun fieldLocation(text: String, field: String): TextLocation? {

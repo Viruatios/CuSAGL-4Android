@@ -45,29 +45,24 @@ class ScoreParserTest {
         )
 
         val message = (result as ScoreParseResult.Failure).message
-        assertEquals(R.string.error_score_json_validation_detail, message.resId)
-        assertEquals("bad.json", message.args[0])
-        assertEquals("JSON", message.args[1])
-        assertTrue(message.args[2].toString().contains("line"))
-        assertTrue(message.args[2].toString().contains("column"))
+        assertEquals(R.string.error_score_json_invalid_syntax, message.resId)
+        assertTrue((message.args[0] as Int) > 0)
+        assertTrue((message.args[1] as Int) > 0)
     }
 
     @Test
-    fun strictParse_fieldFailures_reportFieldNamesAndLocations() {
+    fun strictParse_fieldFailures_reportUserReadableMessages() {
         val cases = listOf(
-            """{"name":"","bpm":120,"time_signature":"4/4","notes":"A /"}""" to "name",
-            """{"name":"Bad","bpm":0,"time_signature":"4/4","notes":"A /"}""" to "bpm",
-            """{"name":"Bad","bpm":120,"time_signature":"3/x","notes":"A /"}""" to "time_signature",
-            """{"name":"Bad","bpm":120,"time_signature":"4/4","notes":""}""" to "notes"
+            """{"name":"","bpm":120,"time_signature":"4/4","notes":"A /"}""" to R.string.error_score_json_score_name_empty,
+            """{"name":"Bad","bpm":0,"time_signature":"4/4","notes":"A /"}""" to R.string.error_bpm_positive_integer,
+            """{"name":"Bad","bpm":120,"time_signature":"3/x","notes":"A /"}""" to R.string.error_score_json_time_signature_invalid,
+            """{"name":"Bad","bpm":120,"time_signature":"4/4","notes":""}""" to R.string.error_score_json_notes_empty
         )
 
-        cases.forEach { (text, field) ->
+        cases.forEach { (text, expectedResId) ->
             val message = (ScoreParser.parseScoreTextStrict(text, source = "score text") as ScoreParseResult.Failure).message
 
-            assertEquals(R.string.error_score_json_validation_detail, message.resId)
-            assertEquals(field, message.args[1])
-            assertTrue(message.args[2].toString().contains("line"))
-            assertTrue(message.args[2].toString().contains("column"))
+            assertEquals(expectedResId, message.resId)
         }
     }
 }

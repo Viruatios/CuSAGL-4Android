@@ -78,7 +78,24 @@ class ScoreManagementControllerTest {
     }
 
     @Test
-    fun importScoreText_invalidJsonReportsSourceAndLocation() {
+    fun importScoreText_invalidJsonReportsReadableFieldMessage() {
+        val tempDir = Files.createTempDirectory("cusagl-score-invalid-readable").toFile()
+
+        val result = ScoreManagementController.importScoreText(
+            filesDir = tempDir,
+            sourceFileName = "broken.json",
+            text = """{"name":"","bpm":120,"time_signature":"4/4","notes":"A /"}""",
+            overwriteConfirmed = false,
+            logger = DefaultLogger
+        )
+
+        val message = (result as ScoreSaveResult.Failure).message
+        assertEquals(R.string.error_score_json_score_name_empty, message.resId)
+        assertTrue(ScoreManagementController.listScores(tempDir, DefaultLogger).isEmpty())
+    }
+
+    @Test
+    fun importScoreText_invalidSyntaxStillReportsLineAndColumn() {
         val tempDir = Files.createTempDirectory("cusagl-score-invalid-json").toFile()
 
         val result = ScoreManagementController.importScoreText(
@@ -90,11 +107,35 @@ class ScoreManagementControllerTest {
         )
 
         val message = (result as ScoreSaveResult.Failure).message
-        assertEquals(R.string.error_score_json_validation_detail, message.resId)
-        assertEquals("broken.json", message.args[0])
-        assertEquals("JSON", message.args[1])
-        assertTrue(message.args[2].toString().contains("line"))
+        assertEquals(R.string.error_score_json_invalid_syntax, message.resId)
+        assertTrue((message.args[0] as Int) > 0)
+        assertTrue((message.args[1] as Int) > 0)
         assertTrue(ScoreManagementController.listScores(tempDir, DefaultLogger).isEmpty())
+    }
+
+    @Test
+    fun fieldForValidationMessage_mapsReadableErrorsToManualFields() {
+        val cases = listOf(
+            R.string.error_score_json_score_name_empty to ManualScoreField.NAME,
+            R.string.error_score_name_invalid_file_name to ManualScoreField.NAME,
+            R.string.error_bpm_positive_integer to ManualScoreField.BPM,
+            R.string.error_score_json_time_signature_invalid to ManualScoreField.TIME_SIGNATURE,
+            R.string.error_score_json_notes_empty to ManualScoreField.NOTES,
+            R.string.error_score_json_notes_unparseable to ManualScoreField.NOTES
+        )
+
+        cases.forEach { (resId, field) ->
+            assertEquals(
+                field,
+                ScoreManagementController.fieldForValidationMessage(com.culoo.cusagl_4android.UiText.resource(resId))
+            )
+        }
+        assertEquals(
+            null,
+            ScoreManagementController.fieldForValidationMessage(
+                com.culoo.cusagl_4android.UiText.resource(R.string.error_score_json_invalid_syntax, 1, 1)
+            )
+        )
     }
 
     @Test
