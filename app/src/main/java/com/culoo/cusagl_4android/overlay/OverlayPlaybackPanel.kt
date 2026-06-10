@@ -22,7 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.culoo.cusagl_4android.R
 import com.culoo.cusagl_4android.core.PlaybackSnapshot
 import com.culoo.cusagl_4android.core.PlaybackState
 
@@ -51,7 +53,7 @@ fun OverlayPlaybackPanel(
     val panelAlpha = if (isPlaying) 0.5f else 0.94f
     val configuration = LocalConfiguration.current
     val useWideLandscapeLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
-        configuration.screenWidthDp >= WIDE_LANDSCAPE_MIN_WIDTH_DP
+        configuration.screenWidthDp >= OverlayConstants.WIDE_LANDSCAPE_MIN_WIDTH_DP
     val panelModifier = modifier
         .then(dragModifier)
         .alpha(panelAlpha)
@@ -227,7 +229,7 @@ private fun WideLandscapePanelContent(
 private fun TrackNameText(trackName: String?, modifier: Modifier = Modifier) {
     Text(
         modifier = modifier,
-        text = trackName ?: "未选择曲谱",
+        text = trackName ?: stringResource(R.string.overlay_panel_no_score),
         style = MaterialTheme.typography.labelSmall
     )
 }
@@ -255,7 +257,7 @@ private fun StartPauseButton(
             modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
             contentPadding = PRIMARY_BUTTON_PADDING
         ) {
-            Text("暂停", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.overlay_action_pause), style = MaterialTheme.typography.labelMedium)
         }
     } else {
         Button(
@@ -263,7 +265,7 @@ private fun StartPauseButton(
             modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
             contentPadding = PRIMARY_BUTTON_PADDING
         ) {
-            Text("开始", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.overlay_action_start), style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -275,7 +277,7 @@ private fun StopButton(modifier: Modifier = Modifier, onStop: () -> Unit) {
         modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
         contentPadding = SECONDARY_BUTTON_PADDING
     ) {
-        Text("退出", style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.overlay_action_exit), style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -291,7 +293,7 @@ private fun PreviousButton(
         modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
         contentPadding = SECONDARY_BUTTON_PADDING
     ) {
-        Text("上一首", style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.overlay_action_previous), style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -307,18 +309,18 @@ private fun NextButton(
         modifier = modifier.height(COMPACT_BUTTON_HEIGHT),
         contentPadding = SECONDARY_BUTTON_PADDING
     ) {
-        Text("下一首", style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.overlay_action_next), style = MaterialTheme.typography.labelMedium)
     }
 }
 
+@Composable
 private fun stateLabel(state: PlaybackState): String = when (state) {
-    PlaybackState.IDLE -> "等待开始"
-    PlaybackState.PLAYING -> "正在演奏"
-    PlaybackState.PAUSED -> "已暂停"
-    PlaybackState.STOPPED -> "已停止"
+    PlaybackState.IDLE -> stringResource(R.string.overlay_state_idle)
+    PlaybackState.PLAYING -> stringResource(R.string.overlay_state_playing)
+    PlaybackState.PAUSED -> stringResource(R.string.overlay_state_paused)
+    PlaybackState.STOPPED -> stringResource(R.string.overlay_state_stopped)
 }
 
-private const val WIDE_LANDSCAPE_MIN_WIDTH_DP = 600
 private val COMPACT_BUTTON_HEIGHT = 28.dp
 private val PRIMARY_BUTTON_PADDING = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
 private val SECONDARY_BUTTON_PADDING = PaddingValues(horizontal = 6.dp, vertical = 0.dp)

@@ -1,5 +1,7 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
 import com.culoo.cusagl_4android.core.DefaultLogger
 import com.culoo.cusagl_4android.core.Logger
 import com.culoo.cusagl_4android.core.PlayType
@@ -11,13 +13,13 @@ import java.io.File
 import java.util.Calendar
 
 enum class PlaybackConfigMode(
-    val label: String,
+    val labelResId: Int,
     val playType: PlayType
 ) {
-    SINGLE_ONCE("单曲单次执行", PlayType.SINGLE_ONCE),
-    SINGLE_REPEAT("单曲循环", PlayType.SINGLE_REPEAT),
-    QUEUE_ONCE("队列单次执行", PlayType.QUEUE_ONCE),
-    QUEUE_REPEAT("队列循环", PlayType.QUEUE_REPEAT);
+    SINGLE_ONCE(R.string.playback_mode_single_once, PlayType.SINGLE_ONCE),
+    SINGLE_REPEAT(R.string.playback_mode_single_repeat, PlayType.SINGLE_REPEAT),
+    QUEUE_ONCE(R.string.playback_mode_queue_once, PlayType.QUEUE_ONCE),
+    QUEUE_REPEAT(R.string.playback_mode_queue_repeat, PlayType.QUEUE_REPEAT);
 
     fun isQueueMode(): Boolean = this == QUEUE_ONCE || this == QUEUE_REPEAT
 
@@ -47,18 +49,16 @@ data class AppliedPlaybackConfig(
     val draft: PlaybackConfigDraft,
     val request: PlaybackSessionRequest?,
     val scoreNames: List<String>,
-    val summary: String,
-    val message: String? = null
+    val summary: UiText,
+    val message: UiText? = null
 )
 
 sealed class PlaybackConfigApplyResult {
     data class Success(val applied: AppliedPlaybackConfig) : PlaybackConfigApplyResult()
-    data class Failure(val message: String) : PlaybackConfigApplyResult()
+    data class Failure(val message: UiText) : PlaybackConfigApplyResult()
 }
 
 object PlaybackConfigController {
-    private const val CONFIG_FILE_NAME = "playback_config.json"
-
     fun loadApplied(filesDir: File, logger: Logger = DefaultLogger): AppliedPlaybackConfig {
         val scoreNames = listScores(filesDir, logger)
         val draft = loadDraft(filesDir)
@@ -99,7 +99,7 @@ object PlaybackConfigController {
         logger: Logger = DefaultLogger
     ): PreloadResult {
         val queue = scoreNames.filter { it.isNotBlank() }.distinct()
-        if (queue.isEmpty()) return PreloadResult.Failure("没有可预加载的曲谱")
+        if (queue.isEmpty()) return PreloadResult.Failure(UiText.resource(R.string.error_no_preloadable_scores))
 
         val failed = mutableListOf<String>()
         for (scoreName in queue) {
@@ -110,9 +110,9 @@ object PlaybackConfigController {
         }
 
         return if (failed.isEmpty()) {
-            PreloadResult.Success("已预加载 ${queue.size} 首曲谱")
+            PreloadResult.Success(UiText.resource(R.string.message_preload_queue_success, queue.size))
         } else {
-            PreloadResult.Failure("部分曲谱预加载失败：${failed.joinToString("、")}")
+            PreloadResult.Failure(UiText.resource(R.string.error_preload_partial_failed, failed.joinToString(", ")))
         }
     }
 
@@ -129,19 +129,19 @@ object PlaybackConfigController {
                     draft = draft,
                     request = null,
                     scoreNames = emptyList(),
-                    summary = "没有可用曲谱"
+                    summary = UiText.resource(R.string.playback_summary_no_scores)
                 )
             )
         }
 
         val startTime = parseStartTime(draft.startTimeText, nowMs)
-            ?: return PlaybackConfigApplyResult.Failure("定时启动时间格式错误")
+            ?: return PlaybackConfigApplyResult.Failure(UiText.resource(R.string.error_start_time_format))
         val queueInterval = parseNonNegativeSeconds(draft.queueIntervalSeconds)
-            ?: return PlaybackConfigApplyResult.Failure("队列内间隔时间必须是非负整数")
+            ?: return PlaybackConfigApplyResult.Failure(UiText.resource(R.string.error_queue_interval_non_negative))
         val repeatTimes = parseNonNegativeInt(draft.repeatTimes)
-            ?: return PlaybackConfigApplyResult.Failure("循环执行次数必须是非负整数")
+            ?: return PlaybackConfigApplyResult.Failure(UiText.resource(R.string.error_repeat_times_non_negative))
         val repeatInterval = parseNonNegativeSeconds(draft.repeatIntervalSeconds)
-            ?: return PlaybackConfigApplyResult.Failure("循环间隔时间必须是非负整数")
+            ?: return PlaybackConfigApplyResult.Failure(UiText.resource(R.string.error_repeat_interval_non_negative))
 
         val queue = if (draft.mode.isQueueMode()) {
             resolveQueue(draft.queueText, scoreNames)
@@ -213,7 +213,7 @@ object PlaybackConfigController {
         configFile(filesDir).writeText(json.toString(2))
     }
 
-    private fun configFile(filesDir: File): File = File(filesDir, CONFIG_FILE_NAME)
+    private fun configFile(filesDir: File): File = File(filesDir, MainConstants.PLAYBACK_CONFIG_FILE_NAME)
 
     private fun resolveSingleScore(selected: String, scoreNames: List<String>): String {
         return selected.takeIf { scoreNames.contains(it) } ?: scoreNames.first()
@@ -271,14 +271,18 @@ object PlaybackConfigController {
         queue: List<String>,
         startTimeEpochMs: Long,
         debugEnabled: Boolean
-    ): String {
+    ): UiText {
         val target = if (mode.isQueueMode()) {
-            "队列 ${queue.size} 首"
+            UiText.resource(R.string.playback_summary_queue_target, queue.size)
         } else {
-            queue.firstOrNull() ?: "未选择曲谱"
+            UiText.resource(R.string.playback_summary_single_target, queue.firstOrNull() ?: MainConstants.NO_SELECTED_SCORE_LABEL)
         }
-        val timed = if (startTimeEpochMs > 0) "，定时启动" else ""
-        val debug = if (debugEnabled) "，调试模式" else ""
-        return "${mode.label}：$target$timed$debug"
+        return UiText.resource(
+            R.string.playback_summary_template,
+            UiText.resource(mode.labelResId),
+            target,
+            if (startTimeEpochMs > 0) UiText.resource(R.string.playback_summary_timed) else UiText.resource(R.string.empty),
+            if (debugEnabled) UiText.resource(R.string.playback_summary_debug) else UiText.resource(R.string.empty)
+        )
     }
 }

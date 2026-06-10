@@ -1,5 +1,7 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
 import com.culoo.cusagl_4android.core.DefaultLogger
 import com.culoo.cusagl_4android.core.LogTags
 import com.culoo.cusagl_4android.core.Logger
@@ -20,10 +22,10 @@ data class MainScreenState(
     val firstScoreName: String? = null,
     val isCacheReady: Boolean = false,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
+    val errorMessage: UiText? = null,
     val hasOverlayPermission: Boolean = false,
     val hasAccessibility: Boolean = false,
-    val playbackConfigSummary: String = "单曲单次执行：默认第一首曲谱",
+    val playbackConfigSummary: UiText = UiText.resource(R.string.playback_summary_default),
     val playbackQueueSize: Int = 0,
     val hasPlaybackRequest: Boolean = false
 ) {
@@ -44,8 +46,8 @@ data class MainRefreshResult(
 )
 
 sealed class PreloadResult {
-    data class Success(val scoreName: String) : PreloadResult()
-    data class Failure(val message: String) : PreloadResult()
+    data class Success(val message: UiText) : PreloadResult()
+    data class Failure(val message: UiText) : PreloadResult()
 }
 
 object MainScreenController {
@@ -66,19 +68,19 @@ object MainScreenController {
 
     fun preloadFirstScore(filesDir: File, scoreName: String, logger: Logger = DefaultLogger): PreloadResult {
         val score = ScoreParser.loadScoreByName(filesDir, scoreName, logger)
-            ?: return PreloadResult.Failure("曲谱解析失败：$scoreName")
+            ?: return PreloadResult.Failure(UiText.resource(R.string.error_score_parse_failed, scoreName))
 
         return try {
             val cache = ScoreStorage.buildCache(score)
             ScoreStorage.saveCache(filesDir, scoreName, cache, logger)
             if (ScoreStorage.loadCache(filesDir, scoreName, logger) == null) {
-                PreloadResult.Failure("缓存保存失败：$scoreName")
+                PreloadResult.Failure(UiText.resource(R.string.error_cache_save_failed, scoreName))
             } else {
-                PreloadResult.Success(scoreName)
+                PreloadResult.Success(UiText.resource(R.string.message_preload_single_success, scoreName))
             }
         } catch (ex: Exception) {
             logger.e(LogTags.CACHE_INVALID, "Failed to preload score: $scoreName", ex)
-            PreloadResult.Failure("预加载失败：${ex.message ?: scoreName}")
+            PreloadResult.Failure(UiText.resource(R.string.error_preload_failed, ex.message ?: scoreName))
         }
     }
 }

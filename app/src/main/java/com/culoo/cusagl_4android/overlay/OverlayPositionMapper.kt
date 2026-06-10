@@ -7,13 +7,13 @@ import kotlin.math.roundToInt
 data class OverlayPosition(val x: Int, val y: Int)
 
 object OverlayPositionMapper {
-    const val BASE_WIDTH_PX = 1920f
-    const val BASE_HEIGHT_PX = 1080f
-    const val INITIAL_CENTER_X_BASE = 960f
-    const val INITIAL_TOP_BASE = 40f
-    const val FIRST_KEY_ROW_Y_BASE = 670f
-    const val KEY_SAFETY_MARGIN_BASE = 80f
-    const val SAFE_BOTTOM_BASE = FIRST_KEY_ROW_Y_BASE - KEY_SAFETY_MARGIN_BASE
+    const val BASE_WIDTH_PX = OverlayConstants.BASE_WIDTH_PX
+    const val BASE_HEIGHT_PX = OverlayConstants.BASE_HEIGHT_PX
+    const val INITIAL_CENTER_X_BASE = OverlayConstants.INITIAL_CENTER_X_BASE
+    const val INITIAL_TOP_BASE = OverlayConstants.INITIAL_TOP_BASE
+    const val FIRST_KEY_ROW_Y_BASE = OverlayConstants.FIRST_KEY_ROW_Y_BASE
+    const val KEY_SAFETY_MARGIN_BASE = OverlayConstants.KEY_SAFETY_MARGIN_BASE
+    const val SAFE_BOTTOM_BASE = OverlayConstants.SAFE_BOTTOM_BASE
 
     fun scale(widthPx: Int, heightPx: Int): Float {
         return max(widthPx / BASE_WIDTH_PX, heightPx / BASE_HEIGHT_PX)

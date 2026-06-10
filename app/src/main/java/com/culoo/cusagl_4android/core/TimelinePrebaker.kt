@@ -5,8 +5,6 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 object TimelinePrebaker {
-    private const val MIN_GAP_TIME_MS = 25
-
     fun prebakeTimeline(bars: List<Bar>, gapMs: Double): PrebakeResult {
         val keyState = mutableMapOf<String, Int>()
         val timeline = mutableListOf<TimelineEvent>()
@@ -16,11 +14,11 @@ object TimelinePrebaker {
             var actualDownTime = simTimeMs
 
             val timeSinceLastUp = actualDownTime - lastUp
-            if (timeSinceLastUp < MIN_GAP_TIME_MS) {
-                actualDownTime = lastUp + MIN_GAP_TIME_MS
+            if (timeSinceLastUp < CoreConstants.MIN_KEY_UP_GAP_MS) {
+                actualDownTime = lastUp + CoreConstants.MIN_KEY_UP_GAP_MS
             }
 
-            var holdTime = min(MIN_GAP_TIME_MS.toDouble(), targetHalfTimeMs)
+            var holdTime = min(CoreConstants.MIN_KEY_UP_GAP_MS.toDouble(), targetHalfTimeMs)
             holdTime = max(1.0, kotlin.math.round(holdTime))
             val actualUpTime = actualDownTime + holdTime.roundToInt()
 

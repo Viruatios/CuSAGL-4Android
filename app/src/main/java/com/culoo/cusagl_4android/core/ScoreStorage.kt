@@ -5,9 +5,6 @@ import org.json.JSONObject
 import java.io.File
 
 object ScoreStorage {
-    private const val SCORE_DIR_NAME = "score_file" // Fixed name; keep in comment only.
-    private const val CACHE_DIR_NAME = "cache" // Fixed name; keep in comment only.
-
     private val validNameRegex = Regex("^\\d{4}\\..*\\.json$")
 
     fun listAndNormalizeScores(filesDir: File, logger: Logger = DefaultLogger): List<String> {
@@ -73,7 +70,7 @@ object ScoreStorage {
         return try {
             CacheData(
                 name = json.getString("name"),
-                author = json.optString("author", "未知作者"),
+                author = json.optString("author", CoreConstants.DEFAULT_SCORE_AUTHOR),
                 barCount = json.getInt("barCount"),
                 eventBatchCount = json.getInt("eventBatchCount"),
                 expectedDurationMs = json.getInt("expectedDuration"),
@@ -140,9 +137,9 @@ object ScoreStorage {
         )
     }
 
-    fun scoreDir(filesDir: File): File = File(filesDir, SCORE_DIR_NAME)
+    fun scoreDir(filesDir: File): File = File(filesDir, CoreConstants.SCORE_DIR_NAME)
 
-    fun cacheDir(filesDir: File): File = File(filesDir, CACHE_DIR_NAME)
+    fun cacheDir(filesDir: File): File = File(filesDir, CoreConstants.CACHE_DIR_NAME)
 
     fun scoreFile(filesDir: File, name: String): File = File(scoreDir(filesDir), "$name.json")
 

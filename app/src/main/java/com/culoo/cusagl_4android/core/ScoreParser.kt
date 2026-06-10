@@ -1,5 +1,7 @@
 package com.culoo.cusagl_4android.core
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
 import org.json.JSONObject
 import java.io.File
 
@@ -27,7 +29,7 @@ object ScoreParser {
     fun parseScoreTextStrict(text: String, logger: Logger = DefaultLogger): ScoreParseResult {
         return parseScoreText(text, strict = true, logger = logger, source = "score text")
             ?.let { ScoreParseResult.Success(it) }
-            ?: ScoreParseResult.Failure("曲谱 JSON 校验失败")
+            ?: ScoreParseResult.Failure(UiText.resource(R.string.error_score_json_validation_failed))
     }
 
     private fun parseScoreText(
@@ -49,7 +51,7 @@ object ScoreParser {
             return null
         }
 
-        val name = json.optString("name", "未知曲名")
+        val name = json.optString("name", CoreConstants.DEFAULT_SCORE_NAME)
         val bpm = parseBpm(json.opt("bpm"))
         val timeSignature = json.optString("time_signature", "4/4")
         if (strict) {
@@ -75,14 +77,14 @@ object ScoreParser {
 
         return ScoreInfo(
             name = name,
-            author = json.optString("author", "未知作者"),
-            instrument = json.optString("instrument", "无建议乐器"),
-            description = json.optString("description", "无描述"),
+            author = json.optString("author", CoreConstants.DEFAULT_SCORE_AUTHOR),
+            instrument = json.optString("instrument", CoreConstants.DEFAULT_SCORE_INSTRUMENT),
+            description = json.optString("description", CoreConstants.DEFAULT_SCORE_DESCRIPTION),
             type = "keyboard",
             bpm = bpm,
             timeSignature = timeSignature,
-            composer = json.optString("composer", "未知作曲者"),
-            arranger = json.optString("arranger", "未知编曲者"),
+            composer = json.optString("composer", CoreConstants.DEFAULT_SCORE_COMPOSER),
+            arranger = json.optString("arranger", CoreConstants.DEFAULT_SCORE_ARRANGER),
             notes = notes
         )
     }
@@ -179,6 +181,6 @@ object ScoreParser {
 
 sealed class ScoreParseResult {
     data class Success(val score: ScoreInfo) : ScoreParseResult()
-    data class Failure(val message: String) : ScoreParseResult()
+    data class Failure(val message: UiText) : ScoreParseResult()
 }
 

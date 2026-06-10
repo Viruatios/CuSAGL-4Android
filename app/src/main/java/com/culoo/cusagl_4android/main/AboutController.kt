@@ -1,5 +1,7 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -14,24 +16,19 @@ data class ReleaseInfo(
 sealed class UpdateCheckResult {
     data class UpToDate(val release: ReleaseInfo) : UpdateCheckResult()
     data class UpdateAvailable(val release: ReleaseInfo) : UpdateCheckResult()
-    data class Failure(val message: String) : UpdateCheckResult()
+    data class Failure(val message: UiText) : UpdateCheckResult()
 }
 
 object AboutController {
-    const val REPOSITORY_URL = "https://github.com/Viruatios/CuSAGL-4Android"
-    const val LATEST_RELEASE_API_URL = "https://api.github.com/repos/Viruatios/CuSAGL-4Android/releases/latest"
-    const val APK_ASSET_NAME = "app-debug.apk"
-
-    private const val UPDATE_DIR_NAME = "updates"
-    private const val TEMP_APK_NAME = "$APK_ASSET_NAME.part"
-    private const val CONNECT_TIMEOUT_MS = 10_000
-    private const val READ_TIMEOUT_MS = 30_000
+    const val REPOSITORY_URL = MainConstants.REPOSITORY_URL
+    const val LATEST_RELEASE_API_URL = MainConstants.LATEST_RELEASE_API_URL
+    const val APK_ASSET_NAME = MainConstants.APK_ASSET_NAME
 
     fun checkReleaseJson(currentVersion: String, jsonText: String): UpdateCheckResult {
         val release = parseRelease(jsonText)
-            ?: return UpdateCheckResult.Failure("最新 Release 中没有找到 $APK_ASSET_NAME。")
+            ?: return UpdateCheckResult.Failure(UiText.resource(R.string.error_release_missing_apk, APK_ASSET_NAME))
         val comparison = compareVersions(release.tagName, currentVersion)
-            ?: return UpdateCheckResult.Failure("无法比较版本号：${release.tagName} / $currentVersion")
+            ?: return UpdateCheckResult.Failure(UiText.resource(R.string.error_version_compare_failed, release.tagName, currentVersion))
         return if (comparison > 0) {
             UpdateCheckResult.UpdateAvailable(release)
         } else {
@@ -43,8 +40,8 @@ object AboutController {
         return try {
             val connection = URL(LATEST_RELEASE_API_URL).openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = CONNECT_TIMEOUT_MS
-            connection.readTimeout = READ_TIMEOUT_MS
+            connection.connectTimeout = MainConstants.CONNECT_TIMEOUT_MS
+            connection.readTimeout = MainConstants.READ_TIMEOUT_MS
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "CuSAGL-4Android")
             connection.inputStream.use { stream ->
@@ -52,7 +49,7 @@ object AboutController {
                 checkReleaseJson(currentVersion, jsonText)
             }
         } catch (ex: Exception) {
-            UpdateCheckResult.Failure("检查更新失败：${ex.message ?: "网络请求异常"}")
+            UpdateCheckResult.Failure(UiText.resource(R.string.error_check_update_failed, ex.message ?: MainConstants.NETWORK_ERROR_LABEL))
         }
     }
 
@@ -68,11 +65,11 @@ object AboutController {
         return 0
     }
 
-    fun updateDir(cacheDir: File): File = File(cacheDir, UPDATE_DIR_NAME)
+    fun updateDir(cacheDir: File): File = File(cacheDir, MainConstants.UPDATE_DIR_NAME)
 
     fun apkFile(cacheDir: File): File = File(updateDir(cacheDir), APK_ASSET_NAME)
 
-    fun tempApkFile(cacheDir: File): File = File(updateDir(cacheDir), TEMP_APK_NAME)
+    fun tempApkFile(cacheDir: File): File = File(updateDir(cacheDir), MainConstants.TEMP_APK_NAME)
 
     fun clearUpdateCache(cacheDir: File) {
         updateDir(cacheDir).deleteRecursively()
@@ -87,8 +84,8 @@ object AboutController {
         return try {
             val connection = URL(downloadUrl).openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = CONNECT_TIMEOUT_MS
-            connection.readTimeout = READ_TIMEOUT_MS
+            connection.connectTimeout = MainConstants.CONNECT_TIMEOUT_MS
+            connection.readTimeout = MainConstants.READ_TIMEOUT_MS
             connection.setRequestProperty("User-Agent", "CuSAGL-4Android")
             connection.inputStream.use { input ->
                 tempFile.outputStream().use { output ->
@@ -97,7 +94,7 @@ object AboutController {
             }
             if (apkFile.exists()) apkFile.delete()
             if (!tempFile.renameTo(apkFile)) {
-                throw IllegalStateException("无法写入安装包缓存。")
+                throw IllegalStateException(MainConstants.UPDATE_CACHE_WRITE_FAILED_LABEL)
             }
             apkFile
         } catch (ex: Exception) {

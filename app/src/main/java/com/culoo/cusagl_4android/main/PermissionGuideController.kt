@@ -1,5 +1,8 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
+
 enum class PermissionGuideAction {
     OVERLAY,
     ACCESSIBILITY
@@ -7,9 +10,9 @@ enum class PermissionGuideAction {
 
 data class PermissionGuideItem(
     val action: PermissionGuideAction,
-    val title: String,
-    val description: String,
-    val buttonLabel: String
+    val title: UiText,
+    val description: UiText,
+    val buttonLabel: UiText
 )
 
 object PermissionGuideController {
@@ -19,9 +22,9 @@ object PermissionGuideController {
                 add(
                     PermissionGuideItem(
                         action = PermissionGuideAction.OVERLAY,
-                        title = "开启悬浮窗权限",
-                        description = "用于在游戏上方显示演奏控制面板。",
-                        buttonLabel = "去开启悬浮窗"
+                        title = UiText.resource(R.string.permission_overlay_title),
+                        description = UiText.resource(R.string.permission_overlay_description),
+                        buttonLabel = UiText.resource(R.string.action_enable_overlay)
                     )
                 )
             }
@@ -29,35 +32,35 @@ object PermissionGuideController {
                 add(
                     PermissionGuideItem(
                         action = PermissionGuideAction.ACCESSIBILITY,
-                        title = "开启无障碍服务",
-                        description = "用于把曲谱按键转换成屏幕触控注入。",
-                        buttonLabel = "去开启无障碍"
+                        title = UiText.resource(R.string.permission_accessibility_title),
+                        description = UiText.resource(R.string.permission_accessibility_description),
+                        buttonLabel = UiText.resource(R.string.action_enable_accessibility)
                     )
                 )
             }
         }
     }
 
-    fun preparationBlockers(state: MainScreenState): List<String> {
+    fun preparationBlockers(state: MainScreenState): List<UiText> {
         return buildList {
             if (state.isLoading) {
-                add("正在预加载曲谱，请稍候。")
+                add(UiText.resource(R.string.blocker_loading))
             }
             if (!state.hasPlaybackRequest) {
                 if (state.firstScoreName == null) {
-                    add("请先在曲谱管理中导入或新建曲谱。")
+                    add(UiText.resource(R.string.blocker_missing_score))
                 } else {
-                    add("请先保存一组有效的播放配置。")
+                    add(UiText.resource(R.string.blocker_missing_config))
                 }
             }
             if (!state.isCacheReady) {
-                add("请先预加载当前配置队列的缓存。")
+                add(UiText.resource(R.string.blocker_missing_cache))
             }
             if (!state.hasOverlayPermission) {
-                add("请开启悬浮窗权限。")
+                add(UiText.resource(R.string.blocker_missing_overlay))
             }
             if (!state.hasAccessibility) {
-                add("请开启 CuSAGL 无障碍服务。")
+                add(UiText.resource(R.string.blocker_missing_accessibility))
             }
         }
     }

@@ -340,3 +340,4 @@ _以下是_
     - bugfix4. 对关于页面的 UI 做了调整。版本更新为 `v1.1.2`。
       - 在此阶段，由于 Codex 在工作时表现与预期出现偏差（比如 AGENTS.md 让它用 UTF-8 读文档愣是不用），且每个步骤里的对话中要求多有重复，因此将该部分内容作为 SKILL 进行了显式强化，免得我次次念叨。
     - bugfix5. 将首页右上角“关于”入口从文本三点改为 Compose 绘制的三点图案按钮，保留 48dp 触控目标、点击进入关于页和无障碍说明；版本更新为 `v1.1.3`。
+13. 完成 Step10 程序结构优化：将 Step10 计划落地到 `CopilotDocs/step10/plan.md`。把主界面 Compose 页面从 `MainActivity` 拆分到 `main/ui`；将主要用户可见文本迁移到中英文 `strings.xml`；按 core/accessibility/overlay/main 领域集中维护可配置常量；版本更新为 `v1.2.0`。

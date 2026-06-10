@@ -104,8 +104,8 @@ class AccessibilityTouchInjector(
     )
 
     companion object {
-        const val HOLD_DURATION_MS = 10_000L
-        const val RELEASE_DURATION_MS = 1L
+        const val HOLD_DURATION_MS = AccessibilityConstants.HOLD_DURATION_MS
+        const val RELEASE_DURATION_MS = AccessibilityConstants.RELEASE_DURATION_MS
     }
 }
 

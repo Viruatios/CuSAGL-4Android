@@ -2,12 +2,13 @@
 
 ## Project snapshot
 - Android native port of the JS script in `OriginScripts/CuSimpAutoGenshinLyre/`; that folder is reference-only and is not packaged (see `README.md`).
-- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` is the current main UI with score preload, score management, playback configuration, permission status, and "prepare playback" entry.
+- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` is the Activity/state orchestration entry, while main Compose screens live under `app/src/main/java/com/culoo/cusagl_4android/main/ui/`.
 - Core Kotlin logic now lives under `app/src/main/java/com/culoo/cusagl_4android/core/` (score parsing, storage/cache, timeline prebake).
-- Main-screen state, preload helpers, permission-guidance helpers, score-management helpers, and playback-configuration helpers live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainScreenController`, `MainScreenState`, `PermissionGuideController`, `ScoreManagementController`, `PlaybackConfigController`).
+- Main-screen state, UI state, preload helpers, permission-guidance helpers, score-management helpers, playback-configuration helpers, update helpers, and main-screen constants live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainScreenController`, `MainScreenState`, `AboutUiState`, `PermissionGuideController`, `ScoreManagementController`, `PlaybackConfigController`, `AboutController`, `MainConstants`).
 - Runtime playback scheduling is implemented in core (`RuntimePlaybackEngine`, `PlaybackConfig`, `RuntimePlaybackInterfaces`).
 - Touch injection, accessibility service wiring, and accessibility settings entry helpers live under `app/src/main/java/com/culoo/cusagl_4android/accessibility/` (`LyreAccessibilityService`, `AccessibilityTouchInjector`, `TouchCoordinateMapper`, `AccessibilityPermission`).
-- Foreground playback service and Compose overlay controls live under `app/src/main/java/com/culoo/cusagl_4android/overlay/` (`OverlayPlaybackService`, `PlaybackSessionRequest`, `OverlayPositionMapper`).
+- Foreground playback service and Compose overlay controls live under `app/src/main/java/com/culoo/cusagl_4android/overlay/` (`OverlayPlaybackService`, `PlaybackSessionRequest`, `OverlayPositionMapper`, `OverlayPlaybackPanel`).
+- Tunable constants are grouped by domain in `CoreConstants`, `AccessibilityConstants`, `OverlayConstants`, and `MainConstants`; `BuildConfig.VERSION_NAME` remains the app version source.
 
 ## Architecture and data flow
 - Two-layer approach: port parsing/processing into pure Kotlin first, then bind to Compose UI and Android services later (see `README.md`).
@@ -24,7 +25,7 @@
 ## Domain rules (music playback)
 - Playback must be serial by "basic unit" (not concurrent note timers) to avoid timing drift and key-up races; see v0.1.1 in `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
 - Enforce a short key-up gap to prevent swallowed repeated notes; rationale and mitigation are described in v0.1.3/v0.1.9 of `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
-- Kotlin prebake enforces a minimum key-up gap (`MIN_GAP_TIME_MS = 25`) and serializes events in `TimelinePrebaker`.
+- Kotlin prebake enforces a minimum key-up gap (`CoreConstants.MIN_KEY_UP_GAP_MS = 25`) and serializes events in `TimelinePrebaker`.
 - Score parsing rules (rest/single/chord/arpeggio), stop symbols (space and "/"), and time signature handling are the source of truth in `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
 - Runtime playback scheduling uses `SystemClock.uptimeMillis()` plus sleep+spin (`spinThresholdMs`) for event alignment (see `RuntimePlaybackEngine`).
 
@@ -51,6 +52,7 @@
 - Runtime playback injects dependencies via `TimeSource`, `Sleeper`, and `TouchInjector` to keep core logic platform-agnostic (see `RuntimePlaybackInterfaces.kt`).
 - Cache loading for playback goes through `ScoreCacheProvider`, which builds cache on demand when missing (see `RuntimePlaybackInterfaces.kt`).
 - Core logging stays platform-agnostic via `Logger`/`LogTags` in `app/src/main/java/com/culoo/cusagl_4android/core/Logger.kt` (e.g., `ScoreStorage.listAndNormalizeScores` accepts a `Logger`).
+- Main Compose UI text should use Android string resources in `res/values/strings.xml` and `res/values-en/strings.xml`; pure Kotlin controllers may continue returning business messages without depending on Android `Context`.
 
 ## Developer workflow notes
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.

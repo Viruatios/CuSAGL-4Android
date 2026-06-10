@@ -35,8 +35,8 @@ class TouchCoordinateMapper(private val windowManager: WindowManager) {
     }
 
     companion object {
-        const val BASE_WIDTH_PX = 1920f
-        const val BASE_HEIGHT_PX = 1080f
+        const val BASE_WIDTH_PX = AccessibilityConstants.BASE_WIDTH_PX
+        const val BASE_HEIGHT_PX = AccessibilityConstants.BASE_HEIGHT_PX
 
         fun mapPoint(base: PointF2, widthPx: Int, heightPx: Int): PointF2 {
             val scale = max(widthPx / BASE_WIDTH_PX, heightPx / BASE_HEIGHT_PX)
