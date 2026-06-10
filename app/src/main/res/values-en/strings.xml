@@ -67,6 +67,12 @@
     <string name="error_repeat_interval_non_negative">Repeat interval must be a non-negative integer</string>
     <string name="error_repeat_times_non_negative">Repeat count must be a non-negative integer</string>
     <string name="error_score_delete_failed">Failed to delete score: %1$s</string>
+    <string name="error_score_json_invalid_syntax">JSON format error near line %1$d, column %2$d</string>
+    <string name="error_score_json_notes_empty">Score content is empty</string>
+    <string name="error_score_json_notes_unparseable">Score content cannot be parsed. Check the notes field.</string>
+    <string name="error_score_json_score_name_empty">Score name is empty</string>
+    <string name="error_score_json_time_signature_invalid">Time signature is invalid. Use a format like 4/4.</string>
+    <string name="error_score_json_validation_detail">Score JSON validation failed: %1$s field %2$s at %3$s</string>
     <string name="error_score_json_validation_failed">Score JSON validation failed</string>
     <string name="error_score_missing">Score does not exist: %1$s</string>
     <string name="error_score_name_invalid_file_name">Score name cannot be used as a file name</string>
@@ -107,6 +113,7 @@
     <string name="message_installer_opening">Update package downloaded. Opening the system installer.</string>
     <string name="message_overwrite_cancelled">Overwrite canceled.</string>
     <string name="message_playback_config_applied">Playback configuration applied.</string>
+    <string name="message_playback_config_saved">Settings saved</string>
     <string name="message_preload_queue_success">Preloaded %1$d scores</string>
     <string name="message_preload_single_success">Preloaded score: %1$s</string>
     <string name="message_returned_from_installer">Returned to the app. Download the update again if you need to install it.</string>
@@ -128,6 +135,8 @@
     <string name="playback_mode_single_once">Single once</string>
     <string name="playback_mode_single_repeat">Single repeat</string>
     <string name="playback_no_scores">No stored scores. Import or create a score in score management first.</string>
+    <string name="playback_queue_selector_hint">Tap scores in playback order. The left number is the queue order; saving with no selection plays all scores.</string>
+    <string name="playback_queue_unselected">-</string>
     <string name="playback_section_mode">Playback mode</string>
     <string name="playback_section_score">Score</string>
     <string name="playback_section_timing">Timing and intervals</string>

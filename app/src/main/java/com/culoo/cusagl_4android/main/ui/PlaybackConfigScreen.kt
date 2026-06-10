@@ -1,23 +1,32 @@
 package com.culoo.cusagl_4android.main.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.culoo.cusagl_4android.R
@@ -86,12 +95,10 @@ fun PlaybackConfigScreen(
                 if (entries.isEmpty()) {
                     Text(stringResource(R.string.playback_no_scores))
                 } else if (draft.mode.isQueueMode()) {
-                    OutlinedTextField(
-                        value = draft.queueText,
-                        onValueChange = { onDraftChange(draft.copy(queueText = it)) },
-                        label = { Text(stringResource(R.string.field_queue_indexes)) },
-                        placeholder = { Text(stringResource(R.string.placeholder_queue_indexes)) },
-                        modifier = Modifier.fillMaxWidth()
+                    QueueScoreSelector(
+                        entries = entries,
+                        queueText = draft.queueText,
+                        onQueueTextChange = { onDraftChange(draft.copy(queueText = it)) }
                     )
                 } else {
                     entries.forEach { entry ->
@@ -190,6 +197,131 @@ fun PlaybackConfigScreen(
             }
         }
     }
+}
+
+@Composable
+private fun QueueScoreSelector(
+    entries: List<ScoreEntry>,
+    queueText: String,
+    onQueueTextChange: (String) -> Unit
+) {
+    val selectedNames = selectedQueueNames(entries, queueText)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.playback_queue_selector_hint),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+        entries.forEach { entry ->
+            val order = selectedNames.indexOf(entry.storageName).takeIf { it >= 0 }?.plus(1)
+            QueueScoreRow(
+                entry = entry,
+                order = order,
+                onToggle = {
+                    val next = if (order == null) {
+                        selectedNames + entry.storageName
+                    } else {
+                        selectedNames - entry.storageName
+                    }
+                    onQueueTextChange(queueTextFromSelected(entries, next))
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun QueueScoreRow(
+    entry: ScoreEntry,
+    order: Int?,
+    onToggle: () -> Unit
+) {
+    val selected = order != null
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        label = "queue-row-container"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        label = "queue-row-content"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = containerColor,
+        shape = MaterialTheme.shapes.small,
+        onClick = onToggle
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = selected,
+                onCheckedChange = { onToggle() }
+            )
+            OrderBadge(order = order)
+            Column {
+                Text(entry.title, color = contentColor, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    entry.storageName,
+                    color = if (selected) contentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OrderBadge(order: Int?) {
+    val badgeColor by animateColorAsState(
+        targetValue = if (order == null) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
+        label = "queue-order-badge"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (order == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary,
+        label = "queue-order-text"
+    )
+    Surface(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(MaterialTheme.shapes.small),
+        color = badgeColor,
+        shape = MaterialTheme.shapes.small
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = order?.toString() ?: stringResource(R.string.playback_queue_unselected),
+                color = textColor,
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
+    }
+}
+
+private fun selectedQueueNames(entries: List<ScoreEntry>, queueText: String): List<String> {
+    val scoreNames = entries.map { it.storageName }
+    val result = linkedSetOf<String>()
+    queueText.trim().split(Regex("\\s+")).forEach { raw ->
+        if (raw.isBlank()) return@forEach
+        val index = raw.toIntOrNull()
+        if (index == null || index <= 0) return@forEach
+        val prefix = index.toString().padStart(4, '0')
+        val matched = scoreNames.firstOrNull { it.startsWith("$prefix.") }
+        if (matched != null) result.add(matched)
+    }
+    return result.toList()
+}
+
+private fun queueTextFromSelected(entries: List<ScoreEntry>, selectedNames: List<String>): String {
+    return selectedNames.mapNotNull { selected ->
+        entries.indexOfFirst { it.storageName == selected }
+            .takeIf { it >= 0 }
+            ?.plus(1)
+            ?.toString()
+    }.joinToString(" ")
 }
 
 @Composable

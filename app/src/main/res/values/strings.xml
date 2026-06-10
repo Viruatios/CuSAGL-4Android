@@ -67,6 +67,12 @@
     <string name="error_repeat_interval_non_negative">循环间隔时间必须是非负整数</string>
     <string name="error_repeat_times_non_negative">循环执行次数必须是非负整数</string>
     <string name="error_score_delete_failed">删除曲谱失败：%1$s</string>
+    <string name="error_score_json_invalid_syntax">JSON 格式错误：第 %1$d 行，第 %2$d 列附近</string>
+    <string name="error_score_json_notes_empty">曲谱内容为空</string>
+    <string name="error_score_json_notes_unparseable">曲谱内容无法解析，请检查 notes 填写</string>
+    <string name="error_score_json_score_name_empty">曲谱名为空</string>
+    <string name="error_score_json_time_signature_invalid">拍号格式错误，请使用类似 4/4 的格式</string>
+    <string name="error_score_json_validation_detail">曲谱 JSON 校验失败：%1$s 的 %2$s 位于 %3$s</string>
     <string name="error_score_json_validation_failed">曲谱 JSON 校验失败</string>
     <string name="error_score_missing">曲谱不存在：%1$s</string>
     <string name="error_score_name_invalid_file_name">曲名不能作为文件名</string>
@@ -107,6 +113,7 @@
     <string name="message_installer_opening">更新包已下载，正在打开系统安装器。</string>
     <string name="message_overwrite_cancelled">已取消覆盖。</string>
     <string name="message_playback_config_applied">已应用播放配置。</string>
+    <string name="message_playback_config_saved">设置已保存</string>
     <string name="message_preload_queue_success">已预加载 %1$d 首曲谱</string>
     <string name="message_preload_single_success">已预加载曲谱：%1$s</string>
     <string name="message_returned_from_installer">已返回应用。如需重新安装，请重新下载更新包。</string>
@@ -128,6 +135,8 @@
     <string name="playback_mode_single_once">单曲单次执行</string>
     <string name="playback_mode_single_repeat">单曲循环</string>
     <string name="playback_no_scores">没有已存储的曲谱。请先进入曲谱管理导入或创建曲谱。</string>
+    <string name="playback_queue_selector_hint">按演奏顺序点击曲谱，左侧数字即队列顺序；不选择时保存后默认播放全部曲谱。</string>
+    <string name="playback_queue_unselected">-</string>
     <string name="playback_section_mode">播放模式</string>
     <string name="playback_section_score">曲谱</string>
     <string name="playback_section_timing">定时与间隔</string>

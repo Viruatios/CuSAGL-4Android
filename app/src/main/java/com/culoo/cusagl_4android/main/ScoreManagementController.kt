@@ -29,6 +29,13 @@ data class ManualScoreDraft(
     val notes: String = ""
 )
 
+enum class ManualScoreField {
+    NAME,
+    BPM,
+    TIME_SIGNATURE,
+    NOTES
+}
+
 sealed class ScoreSaveResult {
     data class Success(val storageName: String) : ScoreSaveResult()
     data class NeedsOverwrite(val existingStorageName: String, val title: String) : ScoreSaveResult()
@@ -42,6 +49,18 @@ sealed class ScoreDeleteResult {
 
 object ScoreManagementController {
     private val invalidFileNameChars = Regex("""[\\/:*?"<>|]""")
+
+    fun fieldForValidationMessage(message: UiText?): ManualScoreField? {
+        return when (message?.resId) {
+            R.string.error_score_json_score_name_empty,
+            R.string.error_score_name_invalid_file_name -> ManualScoreField.NAME
+            R.string.error_bpm_positive_integer -> ManualScoreField.BPM
+            R.string.error_score_json_time_signature_invalid -> ManualScoreField.TIME_SIGNATURE
+            R.string.error_score_json_notes_empty,
+            R.string.error_score_json_notes_unparseable -> ManualScoreField.NOTES
+            else -> null
+        }
+    }
 
     fun listScores(filesDir: File, logger: Logger = DefaultLogger): List<ScoreEntry> {
         val scoreNames = ScoreStorage.listAndNormalizeScores(filesDir, logger)
@@ -68,10 +87,18 @@ object ScoreManagementController {
             JSONObject(text)
         } catch (ex: Exception) {
             return ScoreSaveResult.Failure(
-                UiText.resource(R.string.error_invalid_json, sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL })
+                (ScoreParser.parseScoreTextStrict(
+                    text = text,
+                    logger = logger,
+                    source = sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL }
+                ) as ScoreParseResult.Failure).message
             )
         }
-        val parseResult = ScoreParser.parseScoreTextStrict(json.toString(), logger)
+        val parseResult = ScoreParser.parseScoreTextStrict(
+            text = text,
+            logger = logger,
+            source = sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL }
+        )
         val score = when (parseResult) {
             is ScoreParseResult.Success -> parseResult.score
             is ScoreParseResult.Failure -> return ScoreSaveResult.Failure(parseResult.message)
