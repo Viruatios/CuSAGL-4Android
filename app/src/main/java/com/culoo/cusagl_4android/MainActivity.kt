@@ -11,8 +11,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.FileProvider
@@ -56,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private var playbackRequest by mutableStateOf<PlaybackSessionRequest?>(null)
     private var permissionDialogDismissedInCurrentForeground by mutableStateOf(false)
     private var aboutState by mutableStateOf(AboutUiState(currentVersion = BuildConfig.VERSION_NAME))
+    private var snackbarHostState: SnackbarHostState? = null
     private var updateInstallStarted = false
 
     private val openScoreDocumentLauncher = registerForActivityResult(
@@ -72,6 +76,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CuSAGL4AndroidTheme {
+                val currentSnackbarHostState = remember { SnackbarHostState() }
+                snackbarHostState = currentSnackbarHostState
                 BackHandler(enabled = screenState.page != MainPage.HOME) {
                     if (screenState.page == MainPage.MANUAL_SCORE_CREATE) {
                         cancelManualScoreCreation()
@@ -79,7 +85,10 @@ class MainActivity : ComponentActivity() {
                         screenState = screenState.copy(page = MainPage.HOME)
                     }
                 }
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    snackbarHost = { SnackbarHost(currentSnackbarHostState) }
+                ) { innerPadding ->
                     MainScreen(
                         state = screenState,
                         modifier = Modifier.padding(innerPadding),
@@ -260,11 +269,12 @@ class MainActivity : ComponentActivity() {
                     val applied = result.applied
                     playbackDraft = applied.draft
                     playbackRequest = applied.request
-                    playbackConfigMessage = UiText.resource(R.string.message_playback_config_applied)
+                    playbackConfigMessage = null
                     val refresh = withContext(Dispatchers.IO) {
                         MainScreenController.refresh(filesDir, applied.scoreNames)
                     }
                     screenState = screenState.copy(
+                        page = MainPage.HOME,
                         firstScoreName = refresh.firstScoreName,
                         isCacheReady = refresh.isCacheReady,
                         errorMessage = null,
@@ -272,6 +282,7 @@ class MainActivity : ComponentActivity() {
                         playbackQueueSize = applied.scoreNames.size,
                         hasPlaybackRequest = applied.request != null
                     )
+                    snackbarHostState?.showSnackbar(getString(R.string.message_playback_config_saved))
                 }
                 is PlaybackConfigApplyResult.Failure -> {
                     playbackConfigMessage = result.message

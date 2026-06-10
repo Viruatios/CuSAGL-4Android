@@ -1,5 +1,6 @@
 package com.culoo.cusagl_4android.main.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
@@ -81,51 +82,53 @@ fun MainScreen(
         )
     }
 
-    when (state.page) {
-        MainPage.HOME -> HomeScreen(
-            state = state,
-            modifier = modifier,
-            onOpenScoreManagement = onOpenScoreManagement,
-            onOpenPlaybackConfig = onOpenPlaybackConfig,
-            onOpenAbout = onOpenAbout,
-            onGrantOverlay = onGrantOverlay,
-            onGrantAccessibility = onGrantAccessibility,
-            onPreload = onPreload,
-            onStartOverlay = onStartOverlay
-        )
-        MainPage.SCORE_MANAGEMENT -> ScoreManagementScreen(
-            entries = scoreEntries,
-            message = scoreManagementMessage,
-            modifier = modifier,
-            onImportScore = onImportScore,
-            onStartCreate = onStartCreateScore,
-            onDeleteScore = onDeleteScore,
-            onBackHome = onBackHome
-        )
-        MainPage.MANUAL_SCORE_CREATE -> ManualScoreCreateScreen(
-            message = scoreManagementMessage,
-            draft = manualDraft,
-            modifier = modifier,
-            onDraftChange = onManualDraftChange,
-            onSave = onSaveManualScore,
-            onCancel = onCancelCreateScore
-        )
-        MainPage.PLAYBACK_CONFIG -> PlaybackConfigScreen(
-            entries = scoreEntries,
-            draft = playbackDraft,
-            message = playbackConfigMessage,
-            modifier = modifier,
-            onDraftChange = onPlaybackDraftChange,
-            onApply = onApplyPlaybackConfig,
-            onBackHome = onBackHome
-        )
-        MainPage.ABOUT -> AboutScreen(
-            state = aboutState,
-            modifier = modifier,
-            onCheckUpdate = onCheckUpdate,
-            onInstallUpdate = onInstallUpdate,
-            onBackHome = onBackHome
-        )
+    Crossfade(targetState = state.page, label = "main-page") { page ->
+        when (page) {
+            MainPage.HOME -> HomeScreen(
+                state = state,
+                modifier = modifier,
+                onOpenScoreManagement = onOpenScoreManagement,
+                onOpenPlaybackConfig = onOpenPlaybackConfig,
+                onOpenAbout = onOpenAbout,
+                onGrantOverlay = onGrantOverlay,
+                onGrantAccessibility = onGrantAccessibility,
+                onPreload = onPreload,
+                onStartOverlay = onStartOverlay
+            )
+            MainPage.SCORE_MANAGEMENT -> ScoreManagementScreen(
+                entries = scoreEntries,
+                message = scoreManagementMessage,
+                modifier = modifier,
+                onImportScore = onImportScore,
+                onStartCreate = onStartCreateScore,
+                onDeleteScore = onDeleteScore,
+                onBackHome = onBackHome
+            )
+            MainPage.MANUAL_SCORE_CREATE -> ManualScoreCreateScreen(
+                message = scoreManagementMessage,
+                draft = manualDraft,
+                modifier = modifier,
+                onDraftChange = onManualDraftChange,
+                onSave = onSaveManualScore,
+                onCancel = onCancelCreateScore
+            )
+            MainPage.PLAYBACK_CONFIG -> PlaybackConfigScreen(
+                entries = scoreEntries,
+                draft = playbackDraft,
+                message = playbackConfigMessage,
+                modifier = modifier,
+                onDraftChange = onPlaybackDraftChange,
+                onApply = onApplyPlaybackConfig,
+                onBackHome = onBackHome
+            )
+            MainPage.ABOUT -> AboutScreen(
+                state = aboutState,
+                modifier = modifier,
+                onCheckUpdate = onCheckUpdate,
+                onInstallUpdate = onInstallUpdate,
+                onBackHome = onBackHome
+            )
+        }
     }
 }
 

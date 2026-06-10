@@ -1,5 +1,6 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
 import com.culoo.cusagl_4android.core.DefaultLogger
 import com.culoo.cusagl_4android.core.ScoreParser
 import com.culoo.cusagl_4android.core.ScoreStorage
@@ -73,6 +74,26 @@ class ScoreManagementControllerTest {
 
             assertTrue(result is ScoreSaveResult.Failure)
         }
+        assertTrue(ScoreManagementController.listScores(tempDir, DefaultLogger).isEmpty())
+    }
+
+    @Test
+    fun importScoreText_invalidJsonReportsSourceAndLocation() {
+        val tempDir = Files.createTempDirectory("cusagl-score-invalid-json").toFile()
+
+        val result = ScoreManagementController.importScoreText(
+            filesDir = tempDir,
+            sourceFileName = "broken.json",
+            text = "{\n  \"name\": \"Broken\",\n",
+            overwriteConfirmed = false,
+            logger = DefaultLogger
+        )
+
+        val message = (result as ScoreSaveResult.Failure).message
+        assertEquals(R.string.error_score_json_validation_detail, message.resId)
+        assertEquals("broken.json", message.args[0])
+        assertEquals("JSON", message.args[1])
+        assertTrue(message.args[2].toString().contains("line"))
         assertTrue(ScoreManagementController.listScores(tempDir, DefaultLogger).isEmpty())
     }
 

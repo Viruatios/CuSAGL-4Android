@@ -68,10 +68,18 @@ object ScoreManagementController {
             JSONObject(text)
         } catch (ex: Exception) {
             return ScoreSaveResult.Failure(
-                UiText.resource(R.string.error_invalid_json, sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL })
+                (ScoreParser.parseScoreTextStrict(
+                    text = text,
+                    logger = logger,
+                    source = sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL }
+                ) as ScoreParseResult.Failure).message
             )
         }
-        val parseResult = ScoreParser.parseScoreTextStrict(json.toString(), logger)
+        val parseResult = ScoreParser.parseScoreTextStrict(
+            text = text,
+            logger = logger,
+            source = sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL }
+        )
         val score = when (parseResult) {
             is ScoreParseResult.Success -> parseResult.score
             is ScoreParseResult.Failure -> return ScoreSaveResult.Failure(parseResult.message)

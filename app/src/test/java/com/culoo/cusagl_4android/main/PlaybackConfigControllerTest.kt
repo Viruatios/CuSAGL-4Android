@@ -141,6 +141,18 @@ class PlaybackConfigControllerTest {
     }
 
     @Test
+    fun queueRules_keepCheckboxGeneratedOrderCompatibleWithOldTextFormat() {
+        val scores = listOf("0001.first", "0002.second", "0003.third")
+
+        val result = PlaybackConfigController.buildRequest(
+            PlaybackConfigDraft(mode = PlaybackConfigMode.QUEUE_ONCE, queueText = "3 1"),
+            scores
+        ) as PlaybackConfigApplyResult.Success
+
+        assertEquals(listOf("0003.third", "0001.first"), result.applied.request!!.queue)
+    }
+
+    @Test
     fun debugSwitch_isSavedAndRestored() {
         val tempDir = Files.createTempDirectory("cusagl-playback-config").toFile()
         writeScore(tempDir, "0001.first")

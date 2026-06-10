@@ -1,5 +1,10 @@
 package com.culoo.cusagl_4android.main.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,33 +61,49 @@ fun PageTitle(
 
 @Composable
 fun MessageText(message: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.medium
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn() + slideInVertically { -it / 3 },
+        exit = fadeOut()
     ) {
-        Text(
-            text = message,
-            modifier = Modifier.padding(12.dp),
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Text(
+                text = message,
+                modifier = Modifier.padding(12.dp),
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 
 @Composable
 fun ErrorText(message: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.errorContainer,
-        shape = MaterialTheme.shapes.medium
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn() + slideInVertically { -it / 3 },
+        exit = fadeOut()
     ) {
-        Text(
-            text = message,
-            modifier = Modifier.padding(12.dp),
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(),
+            color = MaterialTheme.colorScheme.errorContainer,
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Text(
+                text = message,
+                modifier = Modifier.padding(12.dp),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 
