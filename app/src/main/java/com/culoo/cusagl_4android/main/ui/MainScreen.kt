@@ -1,6 +1,11 @@
 package com.culoo.cusagl_4android.main.ui
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
@@ -82,7 +87,19 @@ fun MainScreen(
         )
     }
 
-    Crossfade(targetState = state.page, label = "main-page") { page ->
+    AnimatedContent(
+        targetState = state.page,
+        transitionSpec = {
+            slideInHorizontally(
+                animationSpec = tween(),
+                initialOffsetX = { fullWidth -> fullWidth }
+            ) togetherWith slideOutHorizontally(
+                animationSpec = tween(),
+                targetOffsetX = { fullWidth -> fullWidth }
+            ) using SizeTransform(clip = true)
+        },
+        label = "main-page"
+    ) { page ->
         when (page) {
             MainPage.HOME -> HomeScreen(
                 state = state,
