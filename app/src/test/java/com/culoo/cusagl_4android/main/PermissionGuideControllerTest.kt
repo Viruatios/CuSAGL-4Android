@@ -1,5 +1,7 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -71,10 +73,10 @@ class PermissionGuideControllerTest {
         val cacheMissing = readyState(isCacheReady = false)
         val loading = readyState(isLoading = true)
 
-        assertTrue(PermissionGuideController.preparationBlockers(noScore).contains("请先在曲谱管理中导入或新建曲谱。"))
-        assertTrue(PermissionGuideController.preparationBlockers(noConfig).contains("请先保存一组有效的播放配置。"))
-        assertEquals(listOf("请先预加载当前配置队列的缓存。"), PermissionGuideController.preparationBlockers(cacheMissing))
-        assertTrue(PermissionGuideController.preparationBlockers(loading).contains("正在预加载曲谱，请稍候。"))
+        assertTrue(PermissionGuideController.preparationBlockers(noScore).contains(UiText.resource(R.string.blocker_missing_score)))
+        assertTrue(PermissionGuideController.preparationBlockers(noConfig).contains(UiText.resource(R.string.blocker_missing_config)))
+        assertEquals(listOf(UiText.resource(R.string.blocker_missing_cache)), PermissionGuideController.preparationBlockers(cacheMissing))
+        assertTrue(PermissionGuideController.preparationBlockers(loading).contains(UiText.resource(R.string.blocker_loading)))
     }
 
     @Test

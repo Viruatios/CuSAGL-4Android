@@ -85,7 +85,7 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 shutdown()
                 return
             }
-            mainHandler.postDelayed(this, PERMISSION_CHECK_INTERVAL_MS)
+            mainHandler.postDelayed(this, OverlayConstants.PERMISSION_CHECK_INTERVAL_MS)
         }
     }
 
@@ -302,7 +302,7 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
+                OverlayConstants.NOTIFICATION_CHANNEL_ID,
                 getString(R.string.overlay_notification_channel),
                 NotificationManager.IMPORTANCE_LOW
             )
@@ -317,7 +317,7 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        return NotificationCompat.Builder(this, OverlayConstants.NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(getString(R.string.overlay_notification_title))
             .setContentText(snapshot.currentTrackName ?: getString(R.string.overlay_notification_idle))
@@ -328,22 +328,18 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
     }
 
     private fun updateNotification() {
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+        getSystemService(NotificationManager::class.java).notify(OverlayConstants.NOTIFICATION_ID, buildNotification())
     }
 
     private fun startForegroundCompat(notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            startForeground(OverlayConstants.NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
-            startForeground(NOTIFICATION_ID, notification)
+            startForeground(OverlayConstants.NOTIFICATION_ID, notification)
         }
     }
 
     companion object {
-        private const val NOTIFICATION_CHANNEL_ID = "overlay_playback"
-        private const val NOTIFICATION_ID = 4104
-        private const val PERMISSION_CHECK_INTERVAL_MS = 1_000L
-
         fun start(context: Context, request: PlaybackSessionRequest) {
             val intent = request.writeTo(Intent(context, OverlayPlaybackService::class.java))
             ContextCompat.startForegroundService(context, intent)

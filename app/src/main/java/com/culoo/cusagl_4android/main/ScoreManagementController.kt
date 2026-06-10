@@ -1,5 +1,7 @@
 package com.culoo.cusagl_4android.main
 
+import com.culoo.cusagl_4android.R
+import com.culoo.cusagl_4android.UiText
 import com.culoo.cusagl_4android.core.DefaultLogger
 import com.culoo.cusagl_4android.core.Logger
 import com.culoo.cusagl_4android.core.ScoreParseResult
@@ -30,12 +32,12 @@ data class ManualScoreDraft(
 sealed class ScoreSaveResult {
     data class Success(val storageName: String) : ScoreSaveResult()
     data class NeedsOverwrite(val existingStorageName: String, val title: String) : ScoreSaveResult()
-    data class Failure(val message: String) : ScoreSaveResult()
+    data class Failure(val message: UiText) : ScoreSaveResult()
 }
 
 sealed class ScoreDeleteResult {
     data class Success(val storageName: String) : ScoreDeleteResult()
-    data class Failure(val message: String) : ScoreDeleteResult()
+    data class Failure(val message: UiText) : ScoreDeleteResult()
 }
 
 object ScoreManagementController {
@@ -65,7 +67,9 @@ object ScoreManagementController {
         val json = try {
             JSONObject(text)
         } catch (ex: Exception) {
-            return ScoreSaveResult.Failure("JSON 格式无效：${sourceFileName.ifBlank { "导入文件" }}")
+            return ScoreSaveResult.Failure(
+                UiText.resource(R.string.error_invalid_json, sourceFileName.ifBlank { MainConstants.DEFAULT_IMPORT_FILE_LABEL })
+            )
         }
         val parseResult = ScoreParser.parseScoreTextStrict(json.toString(), logger)
         val score = when (parseResult) {
@@ -82,7 +86,7 @@ object ScoreManagementController {
         logger: Logger = DefaultLogger
     ): ScoreSaveResult {
         val bpm = draft.bpm.trim().toIntOrNull()
-            ?: return ScoreSaveResult.Failure("BPM 必须是正整数")
+            ?: return ScoreSaveResult.Failure(UiText.resource(R.string.error_bpm_positive_integer))
         val json = JSONObject()
             .put("name", draft.name.trim())
             .put("author", draft.author.trim())
@@ -106,12 +110,12 @@ object ScoreManagementController {
     fun deleteScore(filesDir: File, storageName: String): ScoreDeleteResult {
         val scoreFile = ScoreStorage.scoreFile(filesDir, storageName)
         if (!scoreFile.exists()) {
-            return ScoreDeleteResult.Failure("曲谱不存在：$storageName")
+            return ScoreDeleteResult.Failure(UiText.resource(R.string.error_score_missing, storageName))
         }
 
         val deleted = scoreFile.delete()
         if (!deleted) {
-            return ScoreDeleteResult.Failure("删除曲谱失败：$storageName")
+            return ScoreDeleteResult.Failure(UiText.resource(R.string.error_score_delete_failed, storageName))
         }
 
         val cacheFile = ScoreStorage.cacheFile(filesDir, storageName)
@@ -129,7 +133,7 @@ object ScoreManagementController {
         logger: Logger
     ): ScoreSaveResult {
         val title = sanitizeTitle(rawTitle)
-            ?: return ScoreSaveResult.Failure("曲名不能作为文件名")
+            ?: return ScoreSaveResult.Failure(UiText.resource(R.string.error_score_name_invalid_file_name))
         val existing = findExistingByTitle(filesDir, title, logger)
 
         if (existing != null && !overwriteConfirmed) {
@@ -146,7 +150,7 @@ object ScoreManagementController {
             if (cacheFile.exists()) cacheFile.delete()
             ScoreSaveResult.Success(storageName)
         } catch (ex: Exception) {
-            ScoreSaveResult.Failure("保存曲谱失败：${ex.message ?: storageName}")
+            ScoreSaveResult.Failure(UiText.resource(R.string.error_score_save_failed, ex.message ?: storageName))
         }
     }
 
