@@ -22,6 +22,7 @@
     <string name="action_downloading_update">Downloading...</string>
     <string name="action_check_update">Check for updates</string>
     <string name="action_checking_update">Checking...</string>
+    <string name="action_confirm">Confirm</string>
     <string name="action_enable_accessibility">Open accessibility</string>
     <string name="action_enable_overlay">Enable overlay</string>
     <string name="action_import_json">Import JSON</string>
@@ -35,7 +36,7 @@
     <string name="action_save_apply">Save and apply</string>
     <string name="action_score_management">Score management</string>
     <string name="about_current_version">Current version: %1$s</string>
-    <string name="about_disclaimer">CuSAGL Mobile is free software provided without warranty. Any consequences caused by using it are the user\'s responsibility. If any wording is ambiguous, the meaning of the Chinese text prevails.</string>
+    <string name="about_disclaimer">CuSAGL Mobile is free software provided without warranty. Before using it, users should carefully read this project\'s README and accept responsibility for any consequences caused by using the software. If any wording is ambiguous, the meaning of the Chinese text prevails.</string>
     <string name="about_latest_version">Latest version: %1$s</string>
     <string name="about_release_url">Release: %1$s</string>
     <string name="about_repository">Repository: %1$s</string>
@@ -51,6 +52,9 @@
     <string name="dialog_permission_item">%1$s: %2$s</string>
     <string name="empty"></string>
     <string name="dialog_permission_title">Finish permission setup</string>
+    <string name="dialog_prepare_warning_body">Important: During playback, keep the game on the lyre interface. If you need to leave the lyre interface, pause or exit playback first.</string>
+    <string name="dialog_prepare_warning_do_not_show_again">Do not show again</string>
+    <string name="dialog_prepare_warning_title">Before playback</string>
     <string name="error_prefix">Error: %1$s</string>
     <string name="error_bpm_positive_integer">BPM must be a positive integer</string>
     <string name="error_cache_save_failed">Failed to save cache: %1$s</string>
