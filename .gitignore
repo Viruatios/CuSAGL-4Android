@@ -18,3 +18,5 @@ secrets.properties
 *.aab
 app/release/
 app/debug/
+OriginScripts/
+/OriginScripts/

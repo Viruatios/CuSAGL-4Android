@@ -139,10 +139,10 @@ Q  W
 
 ---
 
-## 引用说明
+## 第三方内容的引用说明
 
 - 应用的图标来自《原神》内的“风物之诗琴”，由 miHoYo 设计，版权归 miHoYo 所有。该图标仅用于本项目的演示和测试目的，不用于任何商业用途。
-- 项目由 CuSimpAutoGenshinLyre 移植并改写而来。原项目是运行在 BetterGI 上的 JS 脚本，开发参考了 @提瓦特钓鱼玳师 和 @半江残秋 老师的 AutoYuanQin。
+- 项目由 CuSimpAutoGenshinLyre 移植并改写而来。原项目是运行在 BetterGI 上的 JS 脚本，开发参考了 @提瓦特钓鱼玳师 和 @半江残秋 老师的 AutoYuanQin。代码移植完成后，原 JS 脚本项目从本项目中移除。
 
 ---
 
