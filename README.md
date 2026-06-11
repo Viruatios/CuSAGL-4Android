@@ -180,7 +180,7 @@ _以下内容部分参考了 Copilot 建议。_
 
 以下是具体的方案和高效起步的步骤：
 
-### 一、 核心方案：JS 到 Kotlin 的逐行映射
+### 核心方案：JS 到 Kotlin 的逐行映射
 
 Kotlin 和 JS 具有极高的语法亲和力，核心任务是完成**思维模式的转换**。性能上，直接跑在 Android ART 虚拟机上的 Kotlin 代码，可以胜过任何桥接形式的 JS 引擎，完全满足项目对性能的严苛要求。
 
@@ -194,7 +194,7 @@ Kotlin 和 JS 具有极高的语法亲和力，核心任务是完成**思维模�
 
 ---
 
-### 二、 高效落地步骤（Step-by-Step）
+### 高效落地步骤（Step-by-Step）
 
 为了追求开发效率，按照以下步骤对原有 JS 脚本进行移植：
 
@@ -202,7 +202,6 @@ Kotlin 和 JS 具有极高的语法亲和力，核心任务是完成**思维模�
 
 JS 脚本通常重度依赖 JSON 数据流转。在强类型的 Kotlin 中，第一步是把这些数据结构固定下来。
 
-- **做法**：在 Android Studio 中安装插件 **"JSON To Kotlin Class"**，把 JS 里涉及的核心 JSON 数据直接复制进去，一键生成 Kotlin 的 `data class`。
 - _示例_：
   ```kotlin
   // JS: const user = { id: 1, name: "Alice" }
@@ -212,28 +211,12 @@ JS 脚本通常重度依赖 JSON 数据流转。在强类型的 Kotlin 中，第
 
 #### 步骤 2：剥离纯逻辑函数，使用 AI 辅助翻译
 
-把 JS 脚本中那些**不涉及 DOM、不涉及网络请求**的纯计算、纯数据处理函数（Pure Functions）提取出来。
-
-- **做法**：因为这是纯逻辑转换，**直接把大段的 JS 代码发给 Copilot**，可以瞬间帮你转化成地道、高性能的 Kotlin 代码。
-- _示例_：
-  ```javascript
-  // JS 代码
-  function processData(items) {
-  	return items.filter((i) => i.active).map((i) => i.value * 2);
-  }
-  ```
-  ```kotlin
-  // 翻译后的 Kotlin 代码
-  fun processData(items: List<Item>): List<Int> {
-      return items.filter { it.active }.map { it.value * 2 }
-  }
-  ```
+把 JS 脚本中那些**不涉及 DOM、不涉及网络请求**的纯计算、纯数据处理函数（Pure Functions）提取出来。 因为这是纯逻辑转换，**直接把大段的 JS 代码发给 Copilot**，可以瞬间帮你转化成地道、高性能的 Kotlin 代码。
 
 #### 步骤 3：改造异步请求（Promise -> Coroutines）
 
-JS 脚本里有 `fetch` 或者异步的文件读取，在 Kotlin 中则需要用**协程**来处理。
+JS 脚本里有 `fetch` 或者异步的文件读取，在 Kotlin 中则需要用**协程**来处理。 在 Kotlin 中，将异步函数标记为 `suspend`。
 
-- **做法**：在 Kotlin 中，将异步函数标记为 `suspend`。
 - _示例_：
   ```javascript
   // JS 异步
@@ -255,12 +238,10 @@ JS 脚本里有 `fetch` 或者异步的文件读取，在 Kotlin 中则需要用
 
 由于没有 Android 开发经验，如果把逻辑直接塞进 UI 里跑，一旦出错，你很难分辨是 UI 写错了还是逻辑写错了。
 
-- **做法**：把翻译好的 Kotlin 逻辑写在 `src/test/java/...` 目录下，写几个简单的单元测试（JUnit）。
+- 把翻译好的 Kotlin 逻辑写在 `src/test/java/...` 目录下，写几个简单的单元测试（JUnit）。
 - 将 JS 脚本的输入输出作为测试用例，喂给你的 Kotlin 函数，断言结果一致即可。这样可以脱离 Android 模拟器，在几毫秒内验证逻辑的正确性。
 
-### 总结与建议
-
-抛弃 JS 引擎的包袱后，项目将变得极度轻量且原生。**现在的策略是：将 UI 开发和逻辑迁移分开。**
+### 将 UI 开发和逻辑迁移分开。
 
 1. 先建一个纯 Kotlin 的文件（不接触任何 Android UI 元素），利用 AI 工具配合，把你的 JS 算法、处理逻辑完整翻译成 Kotlin 函数和类。
 2. 写个简单的 `main` 函数或测试用例跑通。
@@ -268,7 +249,7 @@ JS 脚本里有 `fetch` 或者异步的文件读取，在 Kotlin 中则需要用
 
 ## 附录：触屏模式下的键盘谱演奏应该如何确认按键位置
 
-### 《原神》如何针对不同分辨率进行缩放？“风物之诗琴”多分辨率坐标变换公式
+### 《原神》针对不同分辨率进行“风物之诗琴”缩放坐标变换公式
 
 基于观察得到的原神的 UI 缩放策略推断，对于任意目标分辨率，坐标映射公式如下：
 
@@ -324,9 +305,10 @@ _以下是_
 3. 完成 Step1 规划并落地曲谱解析与缓存机制核心：新增 core 模块数据模型、解析/预烘焙/缓存存取与日志标签规则，补充单元测试，并生成 Step1 规格文档；修复 Windows 下资源/源码符号链接导致的 Gradle 快照问题后重跑测试，以测试与构建通过作为质量保障。
    - 在此阶段，将“完成计划后，将一段简短的总结写入开发节点记录”写入了 AGENTS.md。
 4. 完成 Step2 运行时播放调度实现：新增运行时播放配置、调度器与触控注入接口，采用 `SystemClock.uptimeMillis` 的延迟-自旋调度，补充开始/暂停/停止/上一首/下一首与 `releaseAllTouches` 控制语义，并落地 `CopilotDocs/step2/plan.md`。
+   - 在此阶段，明确了将开发中不同阶段的计划写入 `CopilotDocs/stepX/plan.md` 的规范，计划中需要明确本阶段实现的、留待后续实现的，以避免范围漂移和混乱。
 5. 完成 Step3 触控注入与无障碍服务接入：新增无障碍服务、触控注入与坐标映射实现，更新 Manifest 与服务配置，补充坐标映射单元测试，并落地 `CopilotDocs/step3/plan.md`。
 6. 完成 Step4 悬浮窗播放控制与前台服务：新增播放状态快照与监听、Compose 悬浮控制面板、`specialUse` 前台服务和临时验收入口；悬浮窗采用顶部对齐坐标映射并限制在琴键安全区域内，仅在非播放状态允许拖动；补充位置映射与播放状态单元测试，并落地 `CopilotDocs/step4/plan.md`。
-   - 在此期间，从 Copilot 切换到了 Codex，因此将一些 Copilot 原有的内置技能做了显式的 SKILL 更新，以适配 Codex 的能力。具体地说：克隆了 `agent-customization`。新增 workspace skill `update-agent-instructions`，用于从代码库可验证现状出发，对项目根目录现有 `AGENTS.md` 做最小、保留原有结构的增量更新，并规范一次性发现其他 AI 指令、差异核对和更新后验证流程。该 SKILL 以后有望在全局复用。
+   - 在此期间，从 Copilot 切换到了 Codex，因此将一些 Copilot 原有的内置技能做了显式的 SKILL 更新，以适配 Codex 的能力。具体地说：克隆了 `agent-customization`。新增 workspace skill `update-agent-instructions`，用于从代码库可验证现状出发，对项目根目录现有 `AGENTS.md` 做最小、保留原有结构的增量更新，并规范一次性发现其他 AI 指令、差异核对和更新后验证流程。
 7. 完成 Step5 正式主页面与准备演奏入口：将 `MainActivity` 从 Step4 临时验收入口替换为 Compose 主页面，自动使用排序后的第一首曲谱，提供曲谱管理和播放配置占位页，接入曲谱预加载缓存保存流程，并在缓存、悬浮窗权限和无障碍服务均就绪后启动悬浮窗演奏服务；补充主页面缓存状态与预加载单元测试，并落地 `CopilotDocs/step5/plan.md`。
 8. 完成 Step6 曲谱管理页面：新增系统文件选择器导入 JSON、表单化手动创建、曲谱列表展示、重名覆盖确认和删除曲谱同步清理缓存；补充严格曲谱校验入口与曲谱管理单元测试，并落地 `CopilotDocs/step6/plan.md`。
 9. 完成 Step7 播放配置界面与会话配置接入：新增播放配置草稿、持久化和应用控制器，覆盖原 `settings.json` 的定时启动、四种播放模式、单曲/队列选择、队列间隔、循环次数、循环间隔和调试模式；主页面改为按已应用配置队列预加载与准备演奏，并补充配置解析、队列规则、持久化和队列缓存单元测试，落地 `CopilotDocs/step7/plan.md`。
