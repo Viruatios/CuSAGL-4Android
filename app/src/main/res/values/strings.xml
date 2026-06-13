@@ -22,7 +22,6 @@
     <string name="action_downloading_update">正在下载...</string>
     <string name="action_check_update">检查更新</string>
     <string name="action_checking_update">正在检查...</string>
-    <string name="action_confirm">确认</string>
     <string name="action_enable_accessibility">去开启无障碍</string>
     <string name="action_enable_overlay">去开启悬浮窗</string>
     <string name="action_import_json">导入 JSON</string>
@@ -36,7 +35,7 @@
     <string name="action_save_apply">保存并应用</string>
     <string name="action_score_management">曲谱管理</string>
     <string name="about_current_version">当前版本：%1$s</string>
-    <string name="about_disclaimer">注意：CuSAGL Mobile 是一个免费软件，不带任何担保。使用前，用户应当仔细阅读本项目 README，并自行承担由于使用本软件造成的任何后果。一切表述如有歧义，以中文文本的含义为准。</string>
+    <string name="about_disclaimer">注意：CuSAGL Mobile 是一个免费软件，不带任何担保。任何由于使用本软件造成的后果，应当由用户自行承担。一切表述如有歧义，以中文文本的含义为准。</string>
     <string name="about_latest_version">最新版本：%1$s</string>
     <string name="about_release_url">Release：%1$s</string>
     <string name="about_repository">项目地址：%1$s</string>
@@ -52,9 +51,6 @@
     <string name="dialog_permission_item">%1$s：%2$s</string>
     <string name="empty"></string>
     <string name="dialog_permission_title">完成演奏前的权限设置</string>
-    <string name="dialog_prepare_warning_body">重要：演奏进行期间，请务必保持游戏处于琴界面！如果要退出原琴界面，请首先“暂停”或“退出”演奏！</string>
-    <string name="dialog_prepare_warning_do_not_show_again">不再提示</string>
-    <string name="dialog_prepare_warning_title">演奏前提醒</string>
     <string name="error_prefix">错误：%1$s</string>
     <string name="error_bpm_positive_integer">BPM 必须是正整数</string>
     <string name="error_cache_save_failed">缓存保存失败：%1$s</string>

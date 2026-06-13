@@ -3,8 +3,6 @@ package com.culoo.cusagl_4android.main
 object MainConstants {
     // App-private playback config file. Changing this requires a migration.
     const val PLAYBACK_CONFIG_FILE_NAME = "playback_config.json"
-    const val USER_PREFERENCES_NAME = "user_preferences"
-    const val PREPARE_PLAYBACK_WARNING_SUPPRESSED_KEY = "suppress_prepare_playback_warning"
 
     const val REPOSITORY_URL = "https://github.com/Viruatios/CuSAGL-4Android"
     const val LATEST_RELEASE_API_URL = "https://api.github.com/repos/Viruatios/CuSAGL-4Android/releases/latest"

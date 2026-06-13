@@ -25,7 +25,6 @@ import com.culoo.cusagl_4android.accessibility.AccessibilityPermission
 import com.culoo.cusagl_4android.accessibility.AccessibilityServiceBridge
 import com.culoo.cusagl_4android.main.AboutController
 import com.culoo.cusagl_4android.main.AboutUiState
-import com.culoo.cusagl_4android.main.MainConstants
 import com.culoo.cusagl_4android.main.MainPage
 import com.culoo.cusagl_4android.main.MainScreenController
 import com.culoo.cusagl_4android.main.MainScreenState
@@ -33,13 +32,11 @@ import com.culoo.cusagl_4android.main.ManualScoreDraft
 import com.culoo.cusagl_4android.main.PlaybackConfigApplyResult
 import com.culoo.cusagl_4android.main.PlaybackConfigController
 import com.culoo.cusagl_4android.main.PlaybackConfigDraft
-import com.culoo.cusagl_4android.main.PreparePlaybackWarningController
 import com.culoo.cusagl_4android.main.PreloadResult
 import com.culoo.cusagl_4android.main.ScoreDeleteResult
 import com.culoo.cusagl_4android.main.ScoreEntry
 import com.culoo.cusagl_4android.main.ScoreManagementController
 import com.culoo.cusagl_4android.main.ScoreSaveResult
-import com.culoo.cusagl_4android.main.SharedPreferencesBooleanStore
 import com.culoo.cusagl_4android.main.UpdateCheckResult
 import com.culoo.cusagl_4android.main.ui.MainScreen
 import com.culoo.cusagl_4android.overlay.OverlayPermission
@@ -61,15 +58,9 @@ class MainActivity : ComponentActivity() {
     private var playbackConfigMessage by mutableStateOf<UiText?>(null)
     private var playbackRequest by mutableStateOf<PlaybackSessionRequest?>(null)
     private var permissionDialogDismissedInCurrentForeground by mutableStateOf(false)
-    private var showPreparePlaybackWarningDialog by mutableStateOf(false)
     private var aboutState by mutableStateOf(AboutUiState(currentVersion = BuildConfig.VERSION_NAME))
     private var snackbarHostState: SnackbarHostState? = null
     private var updateInstallStarted = false
-    private val preparePlaybackWarningStore by lazy {
-        SharedPreferencesBooleanStore(
-            getSharedPreferences(MainConstants.USER_PREFERENCES_NAME, MODE_PRIVATE)
-        )
-    }
 
     private val openScoreDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -127,20 +118,6 @@ class MainActivity : ComponentActivity() {
                         onDismissPermissionGuide = {
                             permissionDialogDismissedInCurrentForeground = true
                         },
-                        showPreparePlaybackWarningDialog = showPreparePlaybackWarningDialog,
-                        onConfirmPreparePlaybackWarning = { doNotShowAgain ->
-                            if (doNotShowAgain) {
-                                PreparePlaybackWarningController.setSuppressed(
-                                    preparePlaybackWarningStore,
-                                    true
-                                )
-                            }
-                            showPreparePlaybackWarningDialog = false
-                            startOverlayPlayback()
-                        },
-                        onDismissPreparePlaybackWarning = {
-                            showPreparePlaybackWarningDialog = false
-                        },
                         scoreEntries = scoreEntries,
                         scoreManagementMessage = scoreManagementMessage,
                         manualDraft = manualDraft,
@@ -172,12 +149,9 @@ class MainActivity : ComponentActivity() {
                         onInstallUpdate = ::downloadAndInstallUpdate,
                         onPreload = ::preloadScore,
                         onStartOverlay = {
+                            val request = playbackRequest ?: return@MainScreen
                             if (!screenState.canPreparePlayback) return@MainScreen
-                            if (PreparePlaybackWarningController.shouldShowWarning(preparePlaybackWarningStore)) {
-                                showPreparePlaybackWarningDialog = true
-                            } else {
-                                startOverlayPlayback()
-                            }
+                            OverlayPlaybackService.start(this, request)
                         }
                     )
                 }
@@ -263,12 +237,6 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    private fun startOverlayPlayback() {
-        val request = playbackRequest ?: return
-        if (!screenState.canPreparePlayback) return
-        OverlayPlaybackService.start(this, request)
     }
 
     private fun refreshPlaybackConfig() {
