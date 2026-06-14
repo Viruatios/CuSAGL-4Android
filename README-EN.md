@@ -160,7 +160,7 @@ This is one consecutive-key basic unit. It contains the chord `(QW)`, the single
 
 ## Third-Party Content Notice
 
-- The app icon comes from the "Windsong Lyre" in Genshin Impact, designed by Hoyoverse, with copyright owned by Hoyoverse. This icon is used only for demonstration and testing purposes in this project and is not used for any commercial purpose.
+- The app icon comes from the "Windsong Lyre" in Genshin Impact, designed by HoYoverse, with copyright owned by HoYoverse. This icon is used only for demonstration and testing purposes in this project and is not used for any commercial purpose.
 - This project was ported and rewritten from CuSimpAutoGenshinLyre. The original project was a JS script running on BetterGI, and its development referenced AutoYuanQin by @提瓦特钓鱼玳师 and @半江残秋. After the code port was completed, the original JS script project was removed from this project.
 
 ---
