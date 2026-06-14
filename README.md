@@ -1,5 +1,7 @@
 # 简易自动化原琴：安卓版 - CuSAGL-4Android / CuSAGL Mobile
 
+[English README](README-EN.md)
+
 [CuSimpAutoGenshinLyre](https://github.com/Viruatios/CuSimpAutoGenshinLyre) 的安卓移植版。
 
 ---
