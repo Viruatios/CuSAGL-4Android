@@ -1,7 +1,7 @@
 # AGENTS
 
 ## Project snapshot
-- Android native port of the JS script in `OriginScripts/CuSimpAutoGenshinLyre/`; that folder is reference-only and is not packaged (see `README.md`).
+- Android native app originally ported from the JS script; the porting phase is complete, so current work should focus on maintaining and updating this Android project rather than re-reading `OriginScripts`.
 - Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` is the Activity/state orchestration entry, while main Compose screens live under `app/src/main/java/com/culoo/cusagl_4android/main/ui/`.
 - Core Kotlin logic now lives under `app/src/main/java/com/culoo/cusagl_4android/core/` (score parsing, storage/cache, timeline prebake).
 - Main-screen state, UI state, preload helpers, permission-guidance helpers, score-management helpers, playback-configuration helpers, update helpers, and main-screen constants live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainScreenController`, `MainScreenState`, `AboutUiState`, `PermissionGuideController`, `ScoreManagementController`, `PlaybackConfigController`, `AboutController`, `MainConstants`).
@@ -11,38 +11,37 @@
 - Tunable constants are grouped by domain in `CoreConstants`, `AccessibilityConstants`, `OverlayConstants`, and `MainConstants`; `BuildConfig.VERSION_NAME` remains the app version source.
 
 ## Architecture and data flow
-- Two-layer approach: port parsing/processing into pure Kotlin first, then bind to Compose UI and Android services later (see `README.md`).
-- JS reference split: `OriginScripts/CuSimpAutoGenshinLyre/main.js` for settings/parse/cache flow; `OriginScripts/CuSimpAutoGenshinLyre/player.js` for timeline playback behavior (see `OriginScripts/CuSimpAutoGenshinLyre/README.md`).
+- Current work is Android-native maintenance and feature evolution: keep pure Kotlin core logic decoupled from Compose UI and Android services, and use `CopilotDocs/GeneralPlan.md` as the primary planning reference.
+- Treat historical JS materials under `OriginScripts` as legacy background only; do not use them as the default source for new implementation decisions.
 - Typical pipeline: score JSON -> Kotlin `data class` models -> preprocess timeline / cache -> playback scheduler.
 - Implemented core pipeline: `ScoreParser` -> `ScoreStorage.buildCache` -> `TimelinePrebaker.prebakeTimeline` (see `app/src/main/java/com/culoo/cusagl_4android/core/`).
 - Runtime playback uses cache -> `RuntimePlaybackEngine` -> `TouchInjector` with a `CacheProvider` (see `app/src/main/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngine.kt`).
 - Android touch injection path: `RuntimePlaybackEngine` -> `TouchInjector` -> `AccessibilityTouchInjector` -> `AccessibilityServiceBridge`/`LyreAccessibilityService` (gesture dispatch).
 - Main-page preparation path: `MainActivity` -> `PlaybackConfigController.loadApplied/applyAndSave` -> `MainScreenController.refresh(configuredQueue)` / `PlaybackConfigController.preloadScores` -> `ScoreStorage`/`ScoreParser`, with `PermissionGuideController` deriving permission todos and prepare-blocking reasons, then `PlaybackSessionRequest` -> `OverlayPlaybackService` when ready.
 - Score-management path: `MainActivity` -> `ScoreManagementController` -> `ScoreStorage`/`ScoreParser`; it handles system document import, manual score creation, duplicate overwrite confirmation, and cache cleanup on overwrite/delete.
-- Playback-configuration path: `MainActivity` -> `PlaybackConfigController` -> `PlaybackConfigDraft`/`AppliedPlaybackConfig`; it persists app-private JSON config, maps the four `settings.json` play modes to `PlayType`, resolves single-score/queue selection, and builds `PlaybackSessionRequest`.
+- Playback-configuration path: `MainActivity` -> `PlaybackConfigController` -> `PlaybackConfigDraft`/`AppliedPlaybackConfig`; it persists app-private JSON config, maps supported play modes to `PlayType`, resolves single-score/queue selection, and builds `PlaybackSessionRequest`.
 - Overlay playback path: `PlaybackSessionRequest` -> `OverlayPlaybackService` -> `RuntimePlaybackEngine`; the service observes `PlaybackSnapshot` to update the Compose panel and foreground notification.
 
 ## Domain rules (music playback)
-- Playback must be serial by "basic unit" (not concurrent note timers) to avoid timing drift and key-up races; see v0.1.1 in `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
-- Enforce a short key-up gap to prevent swallowed repeated notes; rationale and mitigation are described in v0.1.3/v0.1.9 of `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
+- Playback must be serial by "basic unit" (not concurrent note timers) to avoid timing drift and key-up races.
+- Enforce a short key-up gap to prevent swallowed repeated notes.
 - Kotlin prebake enforces a minimum key-up gap (`CoreConstants.MIN_KEY_UP_GAP_MS = 25`) and serializes events in `TimelinePrebaker`.
-- Score parsing rules (rest/single/chord/arpeggio), stop symbols (space and "/"), and time signature handling are the source of truth in `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
+- Score parsing rules (rest/single/chord/arpeggio), stop symbols (space and "/"), and time signature handling are implemented in `ScoreParser` and covered by tests; consult code/tests first for current behavior.
 - Runtime playback scheduling uses `SystemClock.uptimeMillis()` plus sleep+spin (`spinThresholdMs`) for event alignment (see `RuntimePlaybackEngine`).
 
 ## Touch coordinate mapping
-- Use the 1920x1080 baseline with `Scale = max(W/1920, H/1080)`, X centered, Y bottom-aligned (see appendix in `README.md`).
-- Base key coordinates are listed in `README.md` (e.g., `Q -> PointF(455f, 670f)`, `M -> PointF(1460f, 940f)`) and should be treated as canonical input positions.
-- Base key coordinates are mirrored in `app/src/main/java/com/culoo/cusagl_4android/core/KeyLayout.kt` as `KeyLayout.baseCoordinates` and `KeyLayout.allKeys`.
+- Use the 1920x1080 baseline with `Scale = max(W/1920, H/1080)`, X centered, Y bottom-aligned.
+- Base key coordinates live in `app/src/main/java/com/culoo/cusagl_4android/core/KeyLayout.kt` (e.g., `Q -> PointF(455f, 670f)`, `M -> PointF(1460f, 940f)`) and should be treated as canonical input positions.
+- `KeyLayout` exposes coordinates through `KeyLayout.baseCoordinates` and key order through `KeyLayout.allKeys`.
 - Runtime mapping uses `TouchCoordinateMapper` in `app/src/main/java/com/culoo/cusagl_4android/accessibility/TouchCoordinateMapper.kt` (WindowManager `currentWindowMetrics` + cached mapping).
 - Overlay positioning uses the same 1920x1080 scale and centered X mapping but top-aligns Y; `OverlayPositionMapper` constrains the panel above the mapped first key row with an 80px-base safety margin.
 - Overlay dragging is allowed only while playback is `IDLE`, `PAUSED`, or `STOPPED`; `PLAYING` locks the panel position.
 
 ## Project-specific conventions
-- JSON-heavy inputs should be modeled as Kotlin `data class` types before translating logic (explicitly recommended in `README.md`).
-- JS async patterns map to Kotlin coroutines (`suspend`) when porting file IO or preprocessing work.
-- Prefer extracting pure Kotlin logic from UI; use unit tests under `app/src/test` to validate against known JS behavior (see `README.md`).
+- JSON-heavy inputs should be modeled as Kotlin `data class` types.
+- Prefer extracting pure Kotlin logic from UI; use unit tests under `app/src/test` to validate current Android behavior.
 - Score files are stored under `filesDir/score_file` and normalized to `####.name.json`; cache files live under `filesDir/cache` (see `ScoreStorage`).
-- Playback configuration is implemented in Step7: the main UI uses the applied config queue for preload/prepare playback, with single-score fallback and queue parsing rules aligned to the JS `settings.json` behavior (see `CopilotDocs/step7/plan.md`).
+- Playback configuration is implemented in Step7: the main UI uses the applied config queue for preload/prepare playback, with single-score fallback and queue parsing rules documented in `CopilotDocs/step7/plan.md`.
 - Permission guidance is implemented in Step8: the main UI shows overlay/accessibility permission todos, a once-per-foreground home permission dialog, and prepare-blocking reasons derived by `PermissionGuideController` (see `CopilotDocs/step8/plan.md`).
 - Playback config is persisted as app-private `filesDir/playback_config.json`; debug mode is stored in the draft but does not yet change `Logger` behavior.
 - Score import/manual creation uses strict validation via `ScoreParser.parseScoreTextStrict`: non-empty `name`, positive integer `bpm`, `N/D` time signature with power-of-two denominator, non-empty `notes`, and non-empty parsed notes.
@@ -71,5 +70,5 @@
 - Write a brief summary of what you did after completing  the implementation of each stepX or bugfixX, update at `README.md ##开发节点的记录`, and update the version number accordingly.
 
 ## Key references
-- Android plan and touch mapping: `README.md`, `CopilotDocs/GeneralPlan.md`.
-- JS parsing/playback rules and historical fixes: `OriginScripts/CuSimpAutoGenshinLyre/README.md`.
+- Primary maintenance and development plan: `CopilotDocs/GeneralPlan.md`.
+- Current Android behavior references: source code under `app/src/main/java/com/culoo/cusagl_4android/` and tests under `app/src/test/`; use `README.md` mainly for user-facing notes and development records.
