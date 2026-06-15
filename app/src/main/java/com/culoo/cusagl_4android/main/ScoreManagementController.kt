@@ -70,7 +70,7 @@ object ScoreManagementController {
             ScoreEntry(
                 storageName = storageName,
                 title = titleFromStorageName(storageName),
-                hasCache = ScoreStorage.cacheFile(filesDir, storageName).exists(),
+                hasCache = ScoreStorage.isCacheUsable(filesDir, storageName, logger),
                 lastModifiedMs = scoreFile.lastModified()
             )
         }

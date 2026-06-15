@@ -106,6 +106,75 @@ class MainScreenControllerTest {
     }
 
     @Test
+    fun refresh_withMetadataOnlyValidCache_doesNotRequireFullTimelineParse() {
+        val tempDir = Files.createTempDirectory("cusagl-main-cache-light").toFile()
+        writeScore(tempDir, "0001.test")
+        writeMetadataCacheWithInvalidTimeline(tempDir, "0001.test")
+
+        val result = MainScreenController.refresh(tempDir, logger = DefaultLogger)
+
+        assertEquals("0001.test", result.firstScoreName)
+        assertTrue(result.isCacheReady)
+        assertEquals(null, ScoreStorage.loadCache(tempDir, "0001.test", DefaultLogger))
+    }
+
+    @Test
+    fun refresh_withCorruptCacheMetadata_marksNotReady() {
+        val tempDir = Files.createTempDirectory("cusagl-main-cache-corrupt").toFile()
+        writeScore(tempDir, "0001.test")
+        ScoreStorage.cacheDir(tempDir).mkdirs()
+        ScoreStorage.cacheFile(tempDir, "0001.test").writeText("""{"stale":true}""")
+
+        val result = MainScreenController.refresh(tempDir, logger = DefaultLogger)
+
+        assertEquals("0001.test", result.firstScoreName)
+        assertFalse(result.isCacheReady)
+    }
+
+    @Test
+    fun refresh_withTruncatedCacheTimeline_marksNotReady() {
+        val tempDir = Files.createTempDirectory("cusagl-main-cache-truncated").toFile()
+        writeScore(tempDir, "0001.test")
+        ScoreStorage.cacheDir(tempDir).mkdirs()
+        ScoreStorage.cacheFile(tempDir, "0001.test").writeText(
+            """
+            {
+              "name": "Test Song",
+              "barCount": 1,
+              "eventBatchCount": 1,
+              "expectedDuration": 100,
+              "create_time": 1000,
+              "gap": 500.0,
+              "mergedTimeline": [
+            """.trimIndent()
+        )
+
+        val result = MainScreenController.refresh(tempDir, logger = DefaultLogger)
+
+        assertEquals("0001.test", result.firstScoreName)
+        assertFalse(result.isCacheReady)
+    }
+
+    @Test
+    fun preloadFirstScore_withExistingCache_replacesItWithUsableCache() {
+        val tempDir = Files.createTempDirectory("cusagl-main-cache-replace").toFile()
+        writeScore(tempDir, "0001.test")
+        ScoreStorage.cacheDir(tempDir).mkdirs()
+        val cacheFile = ScoreStorage.cacheFile(tempDir, "0001.test")
+        cacheFile.writeText("""{"stale":true}""")
+        val oldModified = cacheFile.lastModified()
+        Thread.sleep(5L)
+
+        val preload = MainScreenController.preloadFirstScore(tempDir, "0001.test", DefaultLogger)
+        val newText = cacheFile.readText()
+
+        assertTrue(preload is PreloadResult.Success)
+        assertTrue(cacheFile.lastModified() >= oldModified)
+        assertFalse(newText.contains("stale"))
+        assertTrue(ScoreStorage.isCacheUsable(tempDir, "0001.test", DefaultLogger))
+    }
+
+    @Test
     fun preloadFirstScore_withInvalidScore_returnsFailure() {
         val tempDir = Files.createTempDirectory("cusagl-main-invalid").toFile()
         val scoreDir = ScoreStorage.scoreDir(tempDir)
@@ -149,6 +218,26 @@ class MainScreenControllerTest {
               "bpm": 120,
               "time_signature": "4/4",
               "notes": "A B /"
+            }
+            """.trimIndent()
+        )
+    }
+
+    private fun writeMetadataCacheWithInvalidTimeline(tempDir: File, scoreName: String) {
+        ScoreStorage.cacheDir(tempDir).mkdirs()
+        ScoreStorage.cacheFile(tempDir, scoreName).writeText(
+            """
+            {
+              "name": "Test Song",
+              "author": "Tester",
+              "barCount": 1,
+              "eventBatchCount": 1,
+              "expectedDuration": 100,
+              "create_time": 1000,
+              "gap": 500.0,
+              "mergedTimeline": [
+                {"time": "not an integer", "action": "down", "keys": ["A"]}
+              ]
             }
             """.trimIndent()
         )

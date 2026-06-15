@@ -220,6 +220,21 @@ class ScoreManagementControllerTest {
         assertEquals(listOf("0001.First", "0002.Second"), entries.map { it.storageName })
     }
 
+    @Test
+    fun listScores_withCorruptCache_doesNotMarkCacheReady() {
+        val tempDir = Files.createTempDirectory("cusagl-score-cache-corrupt").toFile()
+        val scoreDir = ScoreStorage.scoreDir(tempDir)
+        scoreDir.mkdirs()
+        File(scoreDir, "0001.First.json").writeText(validScoreJson("First"))
+        ScoreStorage.cacheDir(tempDir).mkdirs()
+        ScoreStorage.cacheFile(tempDir, "0001.First").writeText("""{"stale":true}""")
+
+        val entries = ScoreManagementController.listScores(tempDir, DefaultLogger)
+
+        assertEquals(listOf("0001.First"), entries.map { it.storageName })
+        assertFalse(entries.first().hasCache)
+    }
+
     private fun validScoreJson(name: String): String {
         return """
             {
