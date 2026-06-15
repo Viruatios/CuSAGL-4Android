@@ -8,10 +8,19 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -39,6 +48,9 @@ fun MainScreen(
     onGrantAccessibility: () -> Unit,
     permissionDialogDismissed: Boolean,
     onDismissPermissionGuide: () -> Unit,
+    showPreparePlaybackWarningDialog: Boolean,
+    onConfirmPreparePlaybackWarning: (Boolean) -> Unit,
+    onDismissPreparePlaybackWarning: () -> Unit,
     scoreEntries: List<ScoreEntry>,
     scoreManagementMessage: UiText?,
     manualDraft: ManualScoreDraft,
@@ -84,6 +96,12 @@ fun MainScreen(
             onGrantOverlay = onGrantOverlay,
             onGrantAccessibility = onGrantAccessibility,
             onDismiss = onDismissPermissionGuide
+        )
+    }
+    if (showPreparePlaybackWarningDialog) {
+        PreparePlaybackWarningDialog(
+            onConfirm = onConfirmPreparePlaybackWarning,
+            onDismiss = onDismissPreparePlaybackWarning
         )
     }
 
@@ -147,6 +165,45 @@ fun MainScreen(
             )
         }
     }
+}
+
+@Composable
+private fun PreparePlaybackWarningDialog(
+    onConfirm: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var doNotShowAgain by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_prepare_warning_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.dialog_prepare_warning_body))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = doNotShowAgain,
+                        onCheckedChange = { doNotShowAgain = it }
+                    )
+                    Text(stringResource(R.string.dialog_prepare_warning_do_not_show_again))
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(doNotShowAgain) }) {
+                Text(stringResource(R.string.action_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        }
+    )
 }
 
 @Composable
