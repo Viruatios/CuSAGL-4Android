@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -38,47 +41,62 @@ fun ScoreManagementScreen(
     onDeleteScore: (String) -> Unit,
     onBackHome: () -> Unit
 ) {
-    val scrollState = rememberScrollState()
+    val listState = rememberLazyListState()
     LaunchedEffect(message) {
-        if (shouldScrollToScoreError(message)) scrollState.animateScrollTo(0)
+        if (shouldScrollToScoreError(message)) listState.animateScrollToItem(0)
     }
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
             .padding(24.dp),
+        state = listState,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        PageTitle(
-            title = stringResource(R.string.score_management_title),
-            subtitle = stringResource(R.string.score_management_subtitle)
-        )
+        item {
+            PageTitle(
+                title = stringResource(R.string.score_management_title),
+                subtitle = stringResource(R.string.score_management_subtitle)
+            )
+        }
         if (message != null) {
-            MessageText(message.asString())
-        }
-
-        SectionCard(stringResource(R.string.score_section_source)) {
-            Button(
-                onClick = onImportScore,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.action_import_json))
-            }
-            OutlinedButton(
-                onClick = onStartCreate,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.action_create_score))
+            item {
+                MessageText(message.asString())
             }
         }
 
-        HorizontalDivider()
-        Text(stringResource(R.string.score_stored_title), style = MaterialTheme.typography.titleMedium)
+        item {
+            SectionCard(stringResource(R.string.score_section_source)) {
+                Button(
+                    onClick = onImportScore,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.action_import_json))
+                }
+                OutlinedButton(
+                    onClick = onStartCreate,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.action_create_score))
+                }
+            }
+        }
+
+        item {
+            HorizontalDivider()
+        }
+        item {
+            Text(stringResource(R.string.score_stored_title), style = MaterialTheme.typography.titleMedium)
+        }
 
         if (entries.isEmpty()) {
-            MessageText(stringResource(R.string.score_empty))
+            item {
+                MessageText(stringResource(R.string.score_empty))
+            }
         } else {
-            entries.forEach { entry ->
+            items(
+                items = entries,
+                key = { it.storageName }
+            ) { entry ->
                 ScoreEntryCard(
                     entry = entry,
                     onDelete = { onDeleteScore(entry.storageName) }
@@ -86,11 +104,13 @@ fun ScoreManagementScreen(
             }
         }
 
-        OutlinedButton(
-            onClick = onBackHome,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.action_back_home))
+        item {
+            OutlinedButton(
+                onClick = onBackHome,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.action_back_home))
+            }
         }
     }
 }
