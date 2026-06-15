@@ -1,5 +1,13 @@
 package com.culoo.cusagl_4android.core
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.math.max
 
 enum class PlaybackState {
@@ -14,7 +22,8 @@ class RuntimePlaybackEngine(
     private val touchInjector: TouchInjector,
     private val timeSource: TimeSource = SystemClockTimeSource(),
     private val sleeper: Sleeper = ThreadSleeper(),
-    private val logger: Logger = DefaultLogger
+    private val logger: Logger = DefaultLogger,
+    private val playbackScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) {
     private val lock = Any()
     private val listeners = linkedSetOf<PlaybackSnapshotListener>()
@@ -29,7 +38,7 @@ class RuntimePlaybackEngine(
     private var config: PlaybackConfig = PlaybackConfig()
     private var queue: List<String> = emptyList()
     private var currentIndex: Int = 0
-    private var playbackThread: Thread? = null
+    private var playbackJob: Job? = null
     @Volatile
     private var lastError: String? = null
 
@@ -73,22 +82,32 @@ class RuntimePlaybackEngine(
     }
 
     fun start() {
-        if (state == PlaybackState.PLAYING) return
-        if (queue.isEmpty()) {
-            logger.w(LogTags.FILE_MISSING, "Playback queue is empty")
-            setErrorAndState("Playback queue is empty", PlaybackState.STOPPED)
-            return
-        }
-
-        stopRequested = false
-        val generation = playbackGeneration + 1
-        playbackGeneration = generation
+        var shouldPublish = false
         synchronized(lock) {
-            state = PlaybackState.PLAYING
-            lastError = null
+            if (state == PlaybackState.PLAYING) return
+            if (queue.isEmpty()) {
+                logger.w(LogTags.FILE_MISSING, "Playback queue is empty")
+                lastError = "Playback queue is empty"
+                state = PlaybackState.STOPPED
+                shouldPublish = true
+            } else {
+                stopRequested = false
+                val generation = playbackGeneration + 1
+                playbackGeneration = generation
+                state = PlaybackState.PLAYING
+                lastError = null
+                playbackJob = playbackScope.launch {
+                    runPlayback(generation)
+                }
+                shouldPublish = true
+            }
         }
-        publishSnapshot()
-        playbackThread = Thread { runPlayback(generation) }.apply { isDaemon = true; start() }
+        if (shouldPublish) publishSnapshot()
+    }
+
+    fun close() {
+        pauseInternal(PlaybackState.STOPPED, resetQueueIndex = true)
+        playbackScope.cancel()
     }
 
     fun pause() {
@@ -132,9 +151,8 @@ class RuntimePlaybackEngine(
     private fun pauseInternal(targetState: PlaybackState, resetQueueIndex: Boolean) {
         stopRequested = true
         playbackGeneration++
-        val threadToStop = playbackThread
-        threadToStop?.interrupt()
-        playbackThread = null
+        playbackJob?.cancel()
+        playbackJob = null
         releaseAllTouches()
         synchronized(lock) {
             if (resetQueueIndex) {
@@ -145,7 +163,7 @@ class RuntimePlaybackEngine(
         publishSnapshot()
     }
 
-    private fun runPlayback(generation: Long) {
+    private suspend fun runPlayback(generation: Long) {
         val (snapshotConfig, snapshotQueue) = synchronized(lock) {
             config.normalized() to queue
         }
@@ -181,7 +199,7 @@ class RuntimePlaybackEngine(
                 }
 
                 if (isQueueMode && snapshotConfig.queueIntervalMs > 0 && index < snapshotQueue.lastIndex) {
-                    if (!sleepWithInterrupt(snapshotConfig.queueIntervalMs, generation)) return
+                    if (!waitForDuration(snapshotConfig.queueIntervalMs, generation)) return
                 }
 
                 if (!isQueueMode) {
@@ -195,7 +213,7 @@ class RuntimePlaybackEngine(
             }
 
             if (isRepeatMode && snapshotConfig.repeatIntervalMs > 0 && (alwaysRepeat || remainRounds > 0)) {
-                if (!sleepWithInterrupt(snapshotConfig.repeatIntervalMs, generation)) return
+                if (!waitForDuration(snapshotConfig.repeatIntervalMs, generation)) return
             }
 
             index = if (isQueueMode) 0 else currentIndex
@@ -213,7 +231,7 @@ class RuntimePlaybackEngine(
         }
     }
 
-    private fun playTrack(musicName: String, config: PlaybackConfig, generation: Long): Boolean {
+    private suspend fun playTrack(musicName: String, config: PlaybackConfig, generation: Long): Boolean {
         val cache = cacheProvider.loadCache(musicName)
         if (isCancelled(generation)) return false
         if (cache == null) {
@@ -243,17 +261,9 @@ class RuntimePlaybackEngine(
         val finalRemain = playStartTime + cache.expectedDurationMs +
             (cache.gapMs * config.finalGapMultiplier).toLong() - timeSource.nowMs()
         if (finalRemain > 0) {
-            if (!sleepWithInterrupt(finalRemain, generation)) return false
+            if (!waitForDuration(finalRemain, generation)) return false
         }
         return true
-    }
-
-    private fun setErrorAndState(message: String, targetState: PlaybackState) {
-        synchronized(lock) {
-            lastError = message
-            state = targetState
-        }
-        publishSnapshot()
     }
 
     private fun publishSnapshot() {
@@ -288,19 +298,23 @@ class RuntimePlaybackEngine(
         )
     }
 
-    private fun waitUntilEvent(targetTimeMs: Long, config: PlaybackConfig, generation: Long): Boolean {
+    private suspend fun waitUntilEvent(targetTimeMs: Long, config: PlaybackConfig, generation: Long): Boolean {
         val threshold = config.spinThresholdMs
         val remain = targetTimeMs - timeSource.nowMs()
-        if (remain > threshold) {
-            if (!sleepWithInterrupt(remain - threshold, generation)) return false
+        if (threshold <= 0) {
+            return waitForDuration(remain, generation)
         }
-        while (!isCancelled(generation) && timeSource.nowMs() < targetTimeMs) {
+
+        if (remain > threshold) {
+            if (!waitForDuration(remain - threshold, generation)) return false
+        }
+        while (playbackScope.isActive && !isCancelled(generation) && timeSource.nowMs() < targetTimeMs) {
             // spin-wait for precise alignment
         }
         return !isCancelled(generation)
     }
 
-    private fun waitUntilStart(config: PlaybackConfig, generation: Long): Boolean {
+    private suspend fun waitUntilStart(config: PlaybackConfig, generation: Long): Boolean {
         val targetEpochMs = config.startTimeEpochMs
         if (targetEpochMs <= 0) return true
         val nowEpoch = System.currentTimeMillis()
@@ -309,19 +323,21 @@ class RuntimePlaybackEngine(
         val remain = targetEpochMs - nowEpoch
         val margin = config.startWaitSafetyMarginMs
         if (remain > margin) {
-            if (!sleepWithInterrupt(remain - margin, generation)) return false
+            if (!waitForDuration(remain - margin, generation)) return false
         }
-        while (!isCancelled(generation) && System.currentTimeMillis() < targetEpochMs) {
-            if (!sleepWithInterrupt(config.startWaitPollMs, generation)) return false
+        while (playbackScope.isActive && !isCancelled(generation) && System.currentTimeMillis() < targetEpochMs) {
+            if (!waitForDuration(config.startWaitPollMs, generation)) return false
         }
         return !isCancelled(generation)
     }
 
-    private fun sleepWithInterrupt(durationMs: Long, generation: Long): Boolean {
+    private suspend fun waitForDuration(durationMs: Long, generation: Long): Boolean {
         if (durationMs <= 0) return !isCancelled(generation)
         return try {
             sleeper.sleepMs(durationMs)
             !isCancelled(generation)
+        } catch (ex: CancellationException) {
+            false
         } catch (ex: Exception) {
             false
         }

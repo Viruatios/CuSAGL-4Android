@@ -146,7 +146,7 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
         mainHandler.removeCallbacks(permissionCheck)
         AccessibilityServiceBridge.unregisterListener(this)
         playbackEngine?.removeSnapshotListener(snapshotListener)
-        playbackEngine?.stop()
+        playbackEngine?.close()
         playbackEngine = null
         touchInjector?.close()
         touchInjector = null
