@@ -65,6 +65,14 @@ object ScoreManagementController {
     fun listScores(filesDir: File, logger: Logger = DefaultLogger): List<ScoreEntry> {
         val scoreNames = ScoreStorage.listAndNormalizeScores(filesDir, logger)
         ScoreStorage.cleanExpiredCaches(filesDir, scoreNames.toSet(), logger)
+        return buildEntries(filesDir, scoreNames, logger)
+    }
+
+    fun buildEntries(
+        filesDir: File,
+        scoreNames: List<String>,
+        logger: Logger = DefaultLogger
+    ): List<ScoreEntry> {
         return scoreNames.map { storageName ->
             val scoreFile = ScoreStorage.scoreFile(filesDir, storageName)
             ScoreEntry(

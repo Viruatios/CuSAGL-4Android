@@ -58,6 +58,15 @@ object MainScreenController {
     ): MainRefreshResult {
         val scoreNames = ScoreStorage.listAndNormalizeScores(filesDir, logger)
         ScoreStorage.cleanExpiredCaches(filesDir, scoreNames.toSet(), logger)
+        return refreshWithScoreNames(filesDir, scoreNames, configuredQueue, logger)
+    }
+
+    fun refreshWithScoreNames(
+        filesDir: File,
+        scoreNames: List<String>,
+        configuredQueue: List<String>? = null,
+        logger: Logger = DefaultLogger
+    ): MainRefreshResult {
         val firstScore = scoreNames.firstOrNull()
         val queue = configuredQueue?.filter { scoreNames.contains(it) } ?: listOfNotNull(firstScore)
         return MainRefreshResult(
