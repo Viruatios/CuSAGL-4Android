@@ -362,6 +362,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 latestTag = result.release.tagName,
                                 releaseUrl = result.release.releaseUrl,
                                 apkDownloadUrl = result.release.apkDownloadUrl,
+                                apkAssetName = result.release.apkAssetName,
                                 hasUpdate = true,
                                 message = UiText.resource(R.string.message_update_available, result.release.tagName),
                                 errorMessage = null
@@ -377,6 +378,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 latestTag = result.release.tagName,
                                 releaseUrl = result.release.releaseUrl,
                                 apkDownloadUrl = result.release.apkDownloadUrl,
+                                apkAssetName = result.release.apkAssetName,
                                 hasUpdate = false,
                                 message = UiText.resource(R.string.message_up_to_date, currentVersion),
                                 errorMessage = null
@@ -401,7 +403,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun downloadAndInstallUpdate() {
-        val downloadUrl = _uiState.value.aboutState.apkDownloadUrl ?: return
+        val aboutState = _uiState.value.aboutState
+        val downloadUrl = aboutState.apkDownloadUrl ?: return
+        val apkAssetName = aboutState.apkAssetName ?: return
         _uiState.update {
             it.copy(
                 aboutState = it.aboutState.copy(
@@ -414,7 +418,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val apkFile = try {
                 withContext(Dispatchers.IO) {
-                    AboutController.downloadApk(downloadUrl, cacheDir)
+                    AboutController.downloadApk(downloadUrl, cacheDir, apkAssetName)
                 }
             } catch (ex: Exception) {
                 _uiState.update {

@@ -15,15 +15,38 @@ class AboutControllerTest {
     }
 
     @Test
-    fun checkReleaseJson_newerVersionReportsUpdate() {
+    fun checkReleaseJson_newerVersionReportsUpdateWithReleaseAsset() {
         val result = AboutController.checkReleaseJson(
             currentVersion = "v1.0.1",
-            jsonText = releaseJson(tag = "v1.0.2")
+            jsonText = releaseJson(
+                tag = "v1.0.2",
+                assets = listOf(
+                    "app-debug.apk" to "https://example.com/app-debug.apk",
+                    "app-release.apk" to "https://example.com/app-release.apk"
+                )
+            )
         )
 
         assertTrue(result is UpdateCheckResult.UpdateAvailable)
         val release = (result as UpdateCheckResult.UpdateAvailable).release
         assertEquals("v1.0.2", release.tagName)
+        assertEquals("app-release.apk", release.apkAssetName)
+        assertEquals("https://example.com/app-release.apk", release.apkDownloadUrl)
+    }
+
+    @Test
+    fun checkReleaseJson_debugAssetFallsBackWhenReleaseAssetMissing() {
+        val result = AboutController.checkReleaseJson(
+            currentVersion = "v1.0.1",
+            jsonText = releaseJson(
+                tag = "v1.0.2",
+                assets = listOf("app-debug.apk" to "https://example.com/app-debug.apk")
+            )
+        )
+
+        assertTrue(result is UpdateCheckResult.UpdateAvailable)
+        val release = (result as UpdateCheckResult.UpdateAvailable).release
+        assertEquals("app-debug.apk", release.apkAssetName)
         assertEquals("https://example.com/app-debug.apk", release.apkDownloadUrl)
     }
 
@@ -84,24 +107,44 @@ class AboutControllerTest {
         tempFile.writeText("partial")
 
         assertEquals("updates", updateDir.name)
-        assertEquals("app-debug.apk", apkFile.name)
-        assertEquals("app-debug.apk.part", tempFile.name)
+        assertEquals("app-release.apk", apkFile.name)
+        assertEquals("app-release.apk.part", tempFile.name)
 
         AboutController.clearUpdateCache(cacheDir)
 
         assertFalse(updateDir.exists())
     }
 
-    private fun releaseJson(tag: String): String {
+    @Test
+    fun updateCachePathsSupportSelectedDebugAssetName() {
+        val cacheDir = Files.createTempDirectory("cusagl-about-debug-cache").toFile()
+        val apkFile = AboutController.apkFile(cacheDir, "app-debug.apk")
+        val tempFile = AboutController.tempApkFile(cacheDir, "app-debug.apk")
+
+        assertEquals("app-debug.apk", apkFile.name)
+        assertEquals("app-debug.apk.part", tempFile.name)
+
+        AboutController.clearUpdateCache(cacheDir)
+    }
+
+    private fun releaseJson(
+        tag: String,
+        assets: List<Pair<String, String>> = listOf("app-release.apk" to "https://example.com/app-release.apk")
+    ): String {
+        val assetJson = assets.joinToString(",\n") { (name, url) ->
+            """
+                {
+                  "name": "$name",
+                  "browser_download_url": "$url"
+                }
+            """.trimIndent()
+        }
         return """
             {
               "tag_name": "$tag",
               "html_url": "https://github.com/Viruatios/CuSAGL-4Android/releases/tag/$tag",
               "assets": [
-                {
-                  "name": "app-debug.apk",
-                  "browser_download_url": "https://example.com/app-debug.apk"
-                }
+                $assetJson
               ]
             }
         """.trimIndent()
