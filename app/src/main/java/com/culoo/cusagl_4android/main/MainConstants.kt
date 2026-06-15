@@ -8,9 +8,9 @@ object MainConstants {
 
     const val REPOSITORY_URL = "https://github.com/Viruatios/CuSAGL-4Android"
     const val LATEST_RELEASE_API_URL = "https://api.github.com/repos/Viruatios/CuSAGL-4Android/releases/latest"
-    const val APK_ASSET_NAME = "app-debug.apk"
+    const val RELEASE_APK_ASSET_NAME = "app-release.apk"
+    const val DEBUG_APK_ASSET_NAME = "app-debug.apk"
     const val UPDATE_DIR_NAME = "updates"
-    const val TEMP_APK_NAME = "$APK_ASSET_NAME.part"
     const val CONNECT_TIMEOUT_MS = 10_000
     const val READ_TIMEOUT_MS = 30_000
     const val DEFAULT_IMPORT_FILE_LABEL = "import-file"

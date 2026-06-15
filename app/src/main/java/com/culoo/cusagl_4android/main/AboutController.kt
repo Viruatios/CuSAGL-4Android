@@ -10,7 +10,8 @@ import java.net.URL
 data class ReleaseInfo(
     val tagName: String,
     val releaseUrl: String,
-    val apkDownloadUrl: String
+    val apkDownloadUrl: String,
+    val apkAssetName: String
 )
 
 sealed class UpdateCheckResult {
@@ -22,11 +23,15 @@ sealed class UpdateCheckResult {
 object AboutController {
     const val REPOSITORY_URL = MainConstants.REPOSITORY_URL
     const val LATEST_RELEASE_API_URL = MainConstants.LATEST_RELEASE_API_URL
-    const val APK_ASSET_NAME = MainConstants.APK_ASSET_NAME
+    const val RELEASE_APK_ASSET_NAME = MainConstants.RELEASE_APK_ASSET_NAME
+    const val DEBUG_APK_ASSET_NAME = MainConstants.DEBUG_APK_ASSET_NAME
+    private val SUPPORTED_APK_ASSET_NAMES = listOf(RELEASE_APK_ASSET_NAME, DEBUG_APK_ASSET_NAME)
 
     fun checkReleaseJson(currentVersion: String, jsonText: String): UpdateCheckResult {
         val release = parseRelease(jsonText)
-            ?: return UpdateCheckResult.Failure(UiText.resource(R.string.error_release_missing_apk, APK_ASSET_NAME))
+            ?: return UpdateCheckResult.Failure(
+                UiText.resource(R.string.error_release_missing_apk, SUPPORTED_APK_ASSET_NAMES.joinToString(" / "))
+            )
         val comparison = compareVersions(release.tagName, currentVersion)
             ?: return UpdateCheckResult.Failure(UiText.resource(R.string.error_version_compare_failed, release.tagName, currentVersion))
         return if (comparison > 0) {
@@ -67,20 +72,20 @@ object AboutController {
 
     fun updateDir(cacheDir: File): File = File(cacheDir, MainConstants.UPDATE_DIR_NAME)
 
-    fun apkFile(cacheDir: File): File = File(updateDir(cacheDir), APK_ASSET_NAME)
+    fun apkFile(cacheDir: File, apkAssetName: String = RELEASE_APK_ASSET_NAME): File = File(updateDir(cacheDir), apkAssetName)
 
-    fun tempApkFile(cacheDir: File): File = File(updateDir(cacheDir), MainConstants.TEMP_APK_NAME)
+    fun tempApkFile(cacheDir: File, apkAssetName: String = RELEASE_APK_ASSET_NAME): File = File(updateDir(cacheDir), "$apkAssetName.part")
 
     fun clearUpdateCache(cacheDir: File) {
         updateDir(cacheDir).deleteRecursively()
     }
 
-    fun downloadApk(downloadUrl: String, cacheDir: File): File {
+    fun downloadApk(downloadUrl: String, cacheDir: File, apkAssetName: String = RELEASE_APK_ASSET_NAME): File {
         clearUpdateCache(cacheDir)
         val updateDir = updateDir(cacheDir)
         updateDir.mkdirs()
-        val tempFile = tempApkFile(cacheDir)
-        val apkFile = apkFile(cacheDir)
+        val tempFile = tempApkFile(cacheDir, apkAssetName)
+        val apkFile = apkFile(cacheDir, apkAssetName)
         return try {
             val connection = URL(downloadUrl).openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
@@ -112,17 +117,25 @@ object AboutController {
         val tagName = json.optString("tag_name").takeIf { it.isNotBlank() } ?: return null
         val releaseUrl = json.optString("html_url").takeIf { it.isNotBlank() } ?: REPOSITORY_URL
         val assets = json.optJSONArray("assets") ?: return null
+        for (assetName in SUPPORTED_APK_ASSET_NAMES) {
+            val downloadUrl = findAssetDownloadUrl(assets, assetName)
+            if (downloadUrl != null) {
+                return ReleaseInfo(
+                    tagName = tagName,
+                    releaseUrl = releaseUrl,
+                    apkDownloadUrl = downloadUrl,
+                    apkAssetName = assetName
+                )
+            }
+        }
+        return null
+    }
+
+    private fun findAssetDownloadUrl(assets: org.json.JSONArray, assetName: String): String? {
         for (index in 0 until assets.length()) {
             val asset = assets.optJSONObject(index) ?: continue
-            if (asset.optString("name") == APK_ASSET_NAME) {
-                val downloadUrl = asset.optString("browser_download_url")
-                if (downloadUrl.isNotBlank()) {
-                    return ReleaseInfo(
-                        tagName = tagName,
-                        releaseUrl = releaseUrl,
-                        apkDownloadUrl = downloadUrl
-                    )
-                }
+            if (asset.optString("name") == assetName) {
+                return asset.optString("browser_download_url").takeIf { it.isNotBlank() }
             }
         }
         return null

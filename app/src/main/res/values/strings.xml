@@ -3,7 +3,6 @@
     <string name="accessibility_service_description">CuSAGL 需要开启辅助功能，来使用触控注入服务点击屏幕，从而实现自动化演奏。</string>
     <string name="overlay_notification_channel">悬浮窗演奏服务</string>
     <string name="overlay_notification_title">悬浮窗演奏服务正在运行</string>
-    <string name="overlay_notification_idle">等待演奏</string>
     <string name="overlay_action_exit">退出</string>
     <string name="overlay_action_next">下一首</string>
     <string name="overlay_action_pause">暂停</string>

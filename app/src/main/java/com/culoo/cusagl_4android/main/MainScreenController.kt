@@ -58,22 +58,36 @@ object MainScreenController {
     ): MainRefreshResult {
         val scoreNames = ScoreStorage.listAndNormalizeScores(filesDir, logger)
         ScoreStorage.cleanExpiredCaches(filesDir, scoreNames.toSet(), logger)
+        return refreshWithScoreNames(filesDir, scoreNames, configuredQueue, logger)
+    }
+
+    fun refreshWithScoreNames(
+        filesDir: File,
+        scoreNames: List<String>,
+        configuredQueue: List<String>? = null,
+        logger: Logger = DefaultLogger
+    ): MainRefreshResult {
         val firstScore = scoreNames.firstOrNull()
         val queue = configuredQueue?.filter { scoreNames.contains(it) } ?: listOfNotNull(firstScore)
         return MainRefreshResult(
             firstScoreName = firstScore,
-            isCacheReady = queue.isNotEmpty() && queue.all { ScoreStorage.loadCache(filesDir, it, logger) != null }
+            isCacheReady = queue.isNotEmpty() && queue.all { ScoreStorage.isCacheUsable(filesDir, it, logger) }
         )
     }
 
     fun preloadFirstScore(filesDir: File, scoreName: String, logger: Logger = DefaultLogger): PreloadResult {
+        val cacheFile = ScoreStorage.cacheFile(filesDir, scoreName)
+        if (cacheFile.exists()) {
+            cacheFile.delete()
+        }
+
         val score = ScoreParser.loadScoreByName(filesDir, scoreName, logger)
             ?: return PreloadResult.Failure(UiText.resource(R.string.error_score_parse_failed, scoreName))
 
         return try {
             val cache = ScoreStorage.buildCache(score)
             ScoreStorage.saveCache(filesDir, scoreName, cache, logger)
-            if (ScoreStorage.loadCache(filesDir, scoreName, logger) == null) {
+            if (!ScoreStorage.isCacheUsable(filesDir, scoreName, logger)) {
                 PreloadResult.Failure(UiText.resource(R.string.error_cache_save_failed, scoreName))
             } else {
                 PreloadResult.Success(UiText.resource(R.string.message_preload_single_success, scoreName))

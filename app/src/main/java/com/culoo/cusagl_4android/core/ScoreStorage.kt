@@ -6,6 +6,15 @@ import java.io.File
 
 object ScoreStorage {
     private val validNameRegex = Regex("^\\d{4}\\..*\\.json$")
+    private val requiredCacheFields = listOf(
+        "name",
+        "barCount",
+        "eventBatchCount",
+        "expectedDuration",
+        "create_time",
+        "gap",
+        "mergedTimeline"
+    )
 
     fun listAndNormalizeScores(filesDir: File, logger: Logger = DefaultLogger): List<String> {
         val scoreDir = scoreDir(filesDir)
@@ -82,6 +91,27 @@ object ScoreStorage {
             logger.w(LogTags.CACHE_INVALID, "Failed to parse cache fields: ${cacheFile.absolutePath}", ex)
             null
         }
+    }
+
+    fun isCacheUsable(filesDir: File, name: String, logger: Logger = DefaultLogger): Boolean {
+        val scoreFile = scoreFile(filesDir, name)
+        val cacheFile = cacheFile(filesDir, name)
+        if (!scoreFile.exists() || !cacheFile.exists()) return false
+
+        val scoreModified = scoreFile.lastModified()
+        val cacheModified = cacheFile.lastModified()
+        if (scoreModified > 0 && cacheModified < scoreModified) {
+            return false
+        }
+
+        val text = try {
+            cacheFile.readText()
+        } catch (ex: Exception) {
+            logger.w(LogTags.CACHE_INVALID, "Failed to read cache metadata: ${cacheFile.absolutePath}", ex)
+            return false
+        }
+
+        return hasUsableCacheMetadata(text, cacheFile, logger)
     }
 
     fun saveCache(filesDir: File, name: String, cache: CacheData, logger: Logger = DefaultLogger) {
@@ -177,6 +207,85 @@ object ScoreStorage {
             list.add(MergedEvent(obj.getInt("time"), action, keys))
         }
         return list
+    }
+
+    private fun hasUsableCacheMetadata(text: String, cacheFile: File, logger: Logger): Boolean {
+        val fieldPositions = requiredCacheFields.map { field ->
+            val position = fieldPattern(field).find(text)?.range?.first
+            field to position
+        }
+        val missingField = fieldPositions.firstOrNull { it.second == null }?.first
+        if (missingField != null) {
+            logger.w(LogTags.CACHE_INVALID, "Cache metadata missing field '$missingField': ${cacheFile.absolutePath}")
+            return false
+        }
+
+        val name = stringField("name").find(text)?.groupValues?.get(1).orEmpty()
+        val barCount = intField("barCount").find(text)?.groupValues?.get(1)?.toIntOrNull()
+        val eventBatchCount = intField("eventBatchCount").find(text)?.groupValues?.get(1)?.toIntOrNull()
+        val expectedDuration = intField("expectedDuration").find(text)?.groupValues?.get(1)?.toIntOrNull()
+        val createTime = intField("create_time").find(text)?.groupValues?.get(1)?.toLongOrNull()
+        val gap = numberField("gap").find(text)?.groupValues?.get(1)?.toDoubleOrNull()
+        val timelineStart = Regex(""""mergedTimeline"\s*:\s*\[""").find(text)?.range?.last
+
+        val usable = name.isNotBlank() &&
+            barCount != null &&
+            barCount >= 0 &&
+            eventBatchCount != null &&
+            eventBatchCount >= 0 &&
+            expectedDuration != null &&
+            expectedDuration >= 0 &&
+            createTime != null &&
+            createTime > 0L &&
+            gap != null &&
+            gap > 0.0 &&
+            timelineStart != null &&
+            hasClosedJsonArray(text, timelineStart)
+
+        if (!usable) {
+            logger.w(LogTags.CACHE_INVALID, "Cache metadata has invalid values: ${cacheFile.absolutePath}")
+        }
+        return usable
+    }
+
+    private fun fieldPattern(field: String): Regex = Regex(""""${Regex.escape(field)}"\s*:""")
+
+    private fun stringField(field: String): Regex = Regex(""""${Regex.escape(field)}"\s*:\s*"([^"]*)"""")
+
+    private fun intField(field: String): Regex = Regex(""""${Regex.escape(field)}"\s*:\s*(-?\d+)""")
+
+    private fun numberField(field: String): Regex = Regex(""""${Regex.escape(field)}"\s*:\s*(-?\d+(?:\.\d+)?)""")
+
+    private fun hasClosedJsonArray(text: String, startIndex: Int): Boolean {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (index in startIndex until text.length) {
+            val char = text[index]
+            if (escaped) {
+                escaped = false
+                continue
+            }
+            if (inString && char == '\\') {
+                escaped = true
+                continue
+            }
+            if (char == '"') {
+                inString = !inString
+                continue
+            }
+            if (inString) continue
+
+            when (char) {
+                '[' -> depth++
+                ']' -> {
+                    depth--
+                    if (depth == 0) return true
+                    if (depth < 0) return false
+                }
+            }
+        }
+        return false
     }
 
     private fun serializeCache(cache: CacheData): String {

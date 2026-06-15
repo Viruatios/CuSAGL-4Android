@@ -61,6 +61,10 @@ sealed class PlaybackConfigApplyResult {
 object PlaybackConfigController {
     fun loadApplied(filesDir: File, logger: Logger = DefaultLogger): AppliedPlaybackConfig {
         val scoreNames = listScores(filesDir, logger)
+        return loadAppliedWithScoreNames(filesDir, scoreNames)
+    }
+
+    fun loadAppliedWithScoreNames(filesDir: File, scoreNames: List<String>): AppliedPlaybackConfig {
         val draft = loadDraft(filesDir)
         return when (val result = buildApplied(draft, scoreNames, saveFallback = false, filesDir = filesDir)) {
             is PlaybackConfigApplyResult.Success -> result.applied
@@ -78,6 +82,14 @@ object PlaybackConfigController {
         logger: Logger = DefaultLogger
     ): PlaybackConfigApplyResult {
         val scoreNames = listScores(filesDir, logger)
+        return applyAndSaveWithScoreNames(filesDir, draft, scoreNames)
+    }
+
+    fun applyAndSaveWithScoreNames(
+        filesDir: File,
+        draft: PlaybackConfigDraft,
+        scoreNames: List<String>
+    ): PlaybackConfigApplyResult {
         val result = buildApplied(draft, scoreNames, saveFallback = true, filesDir = filesDir)
         if (result is PlaybackConfigApplyResult.Success) {
             saveDraft(filesDir, result.applied.draft)

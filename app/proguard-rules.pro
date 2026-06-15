@@ -19,3 +19,8 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Android framework and manifest entries instantiate these classes by name.
+-keep class com.culoo.cusagl_4android.MainActivity { public <init>(); }
+-keep class com.culoo.cusagl_4android.accessibility.LyreAccessibilityService { public <init>(); }
+-keep class com.culoo.cusagl_4android.overlay.OverlayPlaybackService { public <init>(); }

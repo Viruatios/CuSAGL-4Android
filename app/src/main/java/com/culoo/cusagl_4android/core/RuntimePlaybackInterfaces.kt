@@ -2,6 +2,7 @@ package com.culoo.cusagl_4android.core
 
 import android.os.SystemClock
 import java.io.File
+import kotlinx.coroutines.delay
 
 interface TimeSource {
     fun nowMs(): Long
@@ -12,17 +13,13 @@ class SystemClockTimeSource : TimeSource {
 }
 
 interface Sleeper {
-    fun sleepMs(durationMs: Long)
+    suspend fun sleepMs(durationMs: Long)
 }
 
 class ThreadSleeper : Sleeper {
-    override fun sleepMs(durationMs: Long) {
+    override suspend fun sleepMs(durationMs: Long) {
         if (durationMs <= 0) return
-        try {
-            Thread.sleep(durationMs)
-        } catch (ex: InterruptedException) {
-            Thread.currentThread().interrupt()
-        }
+        delay(durationMs)
     }
 }
 

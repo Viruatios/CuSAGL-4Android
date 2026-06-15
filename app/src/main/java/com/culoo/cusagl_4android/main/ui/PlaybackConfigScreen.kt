@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -23,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -101,25 +105,11 @@ fun PlaybackConfigScreen(
                         onQueueTextChange = { onDraftChange(draft.copy(queueText = it)) }
                     )
                 } else {
-                    entries.forEach { entry ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            RadioButton(
-                                selected = draft.selectedScoreName == entry.storageName,
-                                onClick = { onDraftChange(draft.copy(selectedScoreName = entry.storageName)) }
-                            )
-                            Column {
-                                Text(entry.title, style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    entry.storageName,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                        }
-                    }
+                    SingleScoreSelector(
+                        entries = entries,
+                        selectedScoreName = draft.selectedScoreName,
+                        onSelectedScoreChange = { onDraftChange(draft.copy(selectedScoreName = it)) }
+                    )
                 }
             }
         }
@@ -200,32 +190,81 @@ fun PlaybackConfigScreen(
 }
 
 @Composable
+private fun SingleScoreSelector(
+    entries: List<ScoreEntry>,
+    selectedScoreName: String,
+    onSelectedScoreChange: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 360.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(
+            items = entries,
+            key = { it.storageName }
+        ) { entry ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                RadioButton(
+                    selected = selectedScoreName == entry.storageName,
+                    onClick = { onSelectedScoreChange(entry.storageName) }
+                )
+                Column {
+                    Text(entry.title, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        entry.storageName,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun QueueScoreSelector(
     entries: List<ScoreEntry>,
     queueText: String,
     onQueueTextChange: (String) -> Unit
 ) {
-    val selectedNames = selectedQueueNames(entries, queueText)
+    val queueState = remember(entries, queueText) {
+        deriveQueueSelection(entries, queueText)
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             stringResource(R.string.playback_queue_selector_hint),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
-        entries.forEach { entry ->
-            val order = selectedNames.indexOf(entry.storageName).takeIf { it >= 0 }?.plus(1)
-            QueueScoreRow(
-                entry = entry,
-                order = order,
-                onToggle = {
-                    val next = if (order == null) {
-                        selectedNames + entry.storageName
-                    } else {
-                        selectedNames - entry.storageName
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(
+                items = entries,
+                key = { it.storageName }
+            ) { entry ->
+                val order = queueState.orderByName[entry.storageName]
+                QueueScoreRow(
+                    entry = entry,
+                    order = order,
+                    onToggle = {
+                        val next = if (order == null) {
+                            queueState.selectedNames + entry.storageName
+                        } else {
+                            queueState.selectedNames - entry.storageName
+                        }
+                        onQueueTextChange(queueTextFromSelected(next, queueState.indexByName))
                     }
-                    onQueueTextChange(queueTextFromSelected(entries, next))
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -301,26 +340,38 @@ private fun OrderBadge(order: Int?) {
     }
 }
 
-private fun selectedQueueNames(entries: List<ScoreEntry>, queueText: String): List<String> {
-    val scoreNames = entries.map { it.storageName }
+internal data class QueueSelectionState(
+    val selectedNames: List<String>,
+    val orderByName: Map<String, Int>,
+    val indexByName: Map<String, Int>
+)
+
+internal fun deriveQueueSelection(entries: List<ScoreEntry>, queueText: String): QueueSelectionState {
+    val nameByPrefix = entries.associateBy { it.storageName.substringBefore('.') }
+    val indexByName = entries.withIndex().associate { (index, entry) -> entry.storageName to index + 1 }
     val result = linkedSetOf<String>()
     queueText.trim().split(Regex("\\s+")).forEach { raw ->
         if (raw.isBlank()) return@forEach
         val index = raw.toIntOrNull()
         if (index == null || index <= 0) return@forEach
         val prefix = index.toString().padStart(4, '0')
-        val matched = scoreNames.firstOrNull { it.startsWith("$prefix.") }
-        if (matched != null) result.add(matched)
+        val matched = nameByPrefix[prefix]
+        if (matched != null) result.add(matched.storageName)
     }
-    return result.toList()
+    val selectedNames = result.toList()
+    return QueueSelectionState(
+        selectedNames = selectedNames,
+        orderByName = selectedNames.withIndex().associate { (index, name) -> name to index + 1 },
+        indexByName = indexByName
+    )
 }
 
-private fun queueTextFromSelected(entries: List<ScoreEntry>, selectedNames: List<String>): String {
+internal fun queueTextFromSelected(
+    selectedNames: List<String>,
+    indexByName: Map<String, Int>
+): String {
     return selectedNames.mapNotNull { selected ->
-        entries.indexOfFirst { it.storageName == selected }
-            .takeIf { it >= 0 }
-            ?.plus(1)
-            ?.toString()
+        indexByName[selected]?.toString()
     }.joinToString(" ")
 }
 
