@@ -2,10 +2,10 @@
 
 ## Project snapshot
 - Android native app originally ported from the JS script; the porting phase is complete, so current work should focus on maintaining and updating this Android project rather than re-reading `OriginScripts`.
-- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` is the Activity/state orchestration entry, while main Compose screens live under `app/src/main/java/com/culoo/cusagl_4android/main/ui/`.
+- Single Android app module in `app/` using Jetpack Compose; `MainActivity.kt` hosts the Activity shell, launchers, and UI event bridge, while main screen state orchestration lives in `MainViewModel` and main Compose screens live under `app/src/main/java/com/culoo/cusagl_4android/main/ui/`.
 - Core Kotlin logic now lives under `app/src/main/java/com/culoo/cusagl_4android/core/` (score parsing, storage/cache, timeline prebake).
-- Main-screen state, UI state, preload helpers, permission-guidance helpers, score-management helpers, playback-configuration helpers, update helpers, and main-screen constants live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainScreenController`, `MainScreenState`, `AboutUiState`, `PermissionGuideController`, `ScoreManagementController`, `PlaybackConfigController`, `AboutController`, `MainConstants`).
-- Runtime playback scheduling is implemented in core (`RuntimePlaybackEngine`, `PlaybackConfig`, `RuntimePlaybackInterfaces`).
+- Main-screen state, UI state, refresh coordination, preload helpers, permission-guidance helpers, score-management helpers, playback-configuration helpers, prepare-playback warning helpers, update helpers, and main-screen constants live under `app/src/main/java/com/culoo/cusagl_4android/main/` (`MainViewModel`, `MainRefreshCoordinator`, `MainScreenController`, `MainScreenState`, `AboutUiState`, `PermissionGuideController`, `ScoreManagementController`, `PlaybackConfigController`, `PreparePlaybackWarningController`, `AboutController`, `MainConstants`).
+- Runtime playback scheduling is implemented in core (`RuntimePlaybackEngine`, `PlaybackConfig`, `RuntimePlaybackInterfaces`) and runs through a dedicated coroutine `Job` so start/stop/pause cancellation stays centralized.
 - Touch injection, accessibility service wiring, and accessibility settings entry helpers live under `app/src/main/java/com/culoo/cusagl_4android/accessibility/` (`LyreAccessibilityService`, `AccessibilityTouchInjector`, `TouchCoordinateMapper`, `AccessibilityPermission`).
 - Foreground playback service and Compose overlay controls live under `app/src/main/java/com/culoo/cusagl_4android/overlay/` (`OverlayPlaybackService`, `PlaybackSessionRequest`, `OverlayPositionMapper`, `OverlayPlaybackPanel`).
 - Tunable constants are grouped by domain in `CoreConstants`, `AccessibilityConstants`, `OverlayConstants`, and `MainConstants`; `BuildConfig.VERSION_NAME` remains the app version source.
@@ -17,10 +17,10 @@
 - Implemented core pipeline: `ScoreParser` -> `ScoreStorage.buildCache` -> `TimelinePrebaker.prebakeTimeline` (see `app/src/main/java/com/culoo/cusagl_4android/core/`).
 - Runtime playback uses cache -> `RuntimePlaybackEngine` -> `TouchInjector` with a `CacheProvider` (see `app/src/main/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngine.kt`).
 - Android touch injection path: `RuntimePlaybackEngine` -> `TouchInjector` -> `AccessibilityTouchInjector` -> `AccessibilityServiceBridge`/`LyreAccessibilityService` (gesture dispatch).
-- Main-page preparation path: `MainActivity` -> `PlaybackConfigController.loadApplied/applyAndSave` -> `MainScreenController.refresh(configuredQueue)` / `PlaybackConfigController.preloadScores` -> `ScoreStorage`/`ScoreParser`, with `PermissionGuideController` deriving permission todos and prepare-blocking reasons, then `PlaybackSessionRequest` -> `OverlayPlaybackService` when ready.
-- Score-management path: `MainActivity` -> `ScoreManagementController` -> `ScoreStorage`/`ScoreParser`; it handles system document import, manual score creation, duplicate overwrite confirmation, and cache cleanup on overwrite/delete.
-- Playback-configuration path: `MainActivity` -> `PlaybackConfigController` -> `PlaybackConfigDraft`/`AppliedPlaybackConfig`; it persists app-private JSON config, maps supported play modes to `PlayType`, resolves single-score/queue selection, and builds `PlaybackSessionRequest`.
-- Overlay playback path: `PlaybackSessionRequest` -> `OverlayPlaybackService` -> `RuntimePlaybackEngine`; the service observes `PlaybackSnapshot` to update the Compose panel and foreground notification.
+- Main-page preparation path: `MainActivity` -> `MainViewModel` -> `MainRefreshCoordinator.refresh` -> `PlaybackConfigController.loadAppliedWithScoreNames` / `MainScreenController.refreshWithScoreNames`, with `PermissionGuideController` deriving permission todos and prepare-blocking reasons; preloading goes through `PlaybackConfigController.preloadScores`, and ready playback emits `PlaybackSessionRequest` -> `OverlayPlaybackService`.
+- Score-management path: `MainActivity` document launcher -> `MainViewModel` -> `ScoreManagementController` -> `ScoreStorage`/`ScoreParser`; it handles system document import, manual score creation, duplicate overwrite confirmation, and cache cleanup on overwrite/delete.
+- Playback-configuration path: `MainViewModel` -> `PlaybackConfigController` -> `PlaybackConfigDraft`/`AppliedPlaybackConfig`; it persists app-private JSON config, maps supported play modes to `PlayType`, resolves single-score/queue selection, and builds `PlaybackSessionRequest`.
+- Overlay playback path: `PlaybackSessionRequest` -> `OverlayPlaybackService` -> `RuntimePlaybackEngine`; the service observes `PlaybackSnapshot` to update the Compose panel, while the foreground service notification is a static low-distraction keep-alive notification.
 
 ## Domain rules (music playback)
 - Playback must be serial by "basic unit" (not concurrent note timers) to avoid timing drift and key-up races.
@@ -41,13 +41,15 @@
 - JSON-heavy inputs should be modeled as Kotlin `data class` types.
 - Prefer extracting pure Kotlin logic from UI; use unit tests under `app/src/test` to validate current Android behavior.
 - Score files are stored under `filesDir/score_file` and normalized to `####.name.json`; cache files live under `filesDir/cache` (see `ScoreStorage`).
+- Home refresh and cache-ready checks should use lightweight cache metadata validation instead of full `mergedTimeline` parsing when playback data is not needed (see `ScoreStorage.isCacheUsable` and `MainRefreshCoordinator`).
 - Playback configuration is implemented in Step7: the main UI uses the applied config queue for preload/prepare playback, with single-score fallback and queue parsing rules documented in `CopilotDocs/step7/plan.md`.
 - Permission guidance is implemented in Step8: the main UI shows overlay/accessibility permission todos, a once-per-foreground home permission dialog, and prepare-blocking reasons derived by `PermissionGuideController` (see `CopilotDocs/step8/plan.md`).
+- The prepare-playback game-interface warning is persisted via `PreparePlaybackWarningController` and `MainConstants.USER_PREFERENCES_NAME`; preserve the "do not show again" behavior when changing the prepare flow.
 - Playback config is persisted as app-private `filesDir/playback_config.json`; debug mode is stored in the draft but does not yet change `Logger` behavior.
 - Score import/manual creation uses strict validation via `ScoreParser.parseScoreTextStrict`: non-empty `name`, positive integer `bpm`, `N/D` time signature with power-of-two denominator, non-empty `notes`, and non-empty parsed notes.
 - Cache JSON is produced via `ScoreStorage.serializeCache` using `org.json` and stores merged timeline batches (`CacheData`).
 - Core unit tests already exist in `app/src/test/java/com/culoo/cusagl_4android/core/ScoreParserTest.kt`.
-- Playback snapshot tests live in `app/src/test/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngineTest.kt`; overlay geometry tests live under `app/src/test/java/com/culoo/cusagl_4android/overlay/`; main-screen preload/cache, permission-guidance, score-management, and playback-config tests live under `app/src/test/java/com/culoo/cusagl_4android/main/`.
+- Playback snapshot tests live in `app/src/test/java/com/culoo/cusagl_4android/core/RuntimePlaybackEngineTest.kt`; overlay geometry tests live under `app/src/test/java/com/culoo/cusagl_4android/overlay/`; main-screen refresh/preload/cache, permission-guidance, score-management, prepare warning, update checking, playback-config, and playback-config queue UI tests live under `app/src/test/java/com/culoo/cusagl_4android/main/`.
 - Runtime playback injects dependencies via `TimeSource`, `Sleeper`, and `TouchInjector` to keep core logic platform-agnostic (see `RuntimePlaybackInterfaces.kt`).
 - Cache loading for playback goes through `ScoreCacheProvider`, which builds cache on demand when missing (see `RuntimePlaybackInterfaces.kt`).
 - Core logging stays platform-agnostic via `Logger`/`LogTags` in `app/src/main/java/com/culoo/cusagl_4android/core/Logger.kt` (e.g., `ScoreStorage.listAndNormalizeScores` accepts a `Logger`).
@@ -57,8 +59,10 @@
 - Use the Gradle wrapper (`gradlew`/`gradlew.bat`); the only module is `:app`.
 - Run `gradlew.bat :app:testDebugUnitTest :app:assembleDebug` to verify local unit tests and the debug build.
 - The project compiles against Android API 36.1; keep `androidx.core-ktx` on a release compatible with that SDK (`1.18.0` currently), because `1.19.0` requires API 37.
+- Release builds enable R8 minification and resource shrinking; keep manifest/system entry points covered by `app/proguard-rules.pro` when adding framework-instantiated classes.
 - Accessibility service config lives in `app/src/main/res/xml/accessibility_service_config.xml` and is declared in `app/src/main/AndroidManifest.xml`.
 - `OverlayPlaybackService` is a `specialUse` foreground service declared in `app/src/main/AndroidManifest.xml`; it requires overlay permission and a connected accessibility service before starting.
+- In-app update checks use the latest GitHub Release, prefer the `app-release.apk` asset, and fall back to `app-debug.apk` for older releases; downloaded APKs are stored under the app cache update directory and installed through the FileProvider.
 
 ## Communication and rules
 - Use Chinese while communicating with the user.
