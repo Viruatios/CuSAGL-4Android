@@ -74,7 +74,6 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private val snapshotListener = PlaybackSnapshotListener { updated ->
         mainHandler.post {
             snapshot = updated
-            updateNotification()
         }
     }
 
@@ -320,15 +319,10 @@ class OverlayPlaybackService : Service(), LifecycleOwner, SavedStateRegistryOwne
         return NotificationCompat.Builder(this, OverlayConstants.NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(getString(R.string.overlay_notification_title))
-            .setContentText(snapshot.currentTrackName ?: getString(R.string.overlay_notification_idle))
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
             .build()
-    }
-
-    private fun updateNotification() {
-        getSystemService(NotificationManager::class.java).notify(OverlayConstants.NOTIFICATION_ID, buildNotification())
     }
 
     private fun startForegroundCompat(notification: Notification) {
