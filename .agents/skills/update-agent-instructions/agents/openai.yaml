@@ -1,4 +1,0 @@
-interface:
-  display_name: "Update Agent Instructions"
-  short_description: "Refresh AGENTS.md from discoverable repository changes"
-  default_prompt: "Use $update-agent-instructions to minimally refresh the project-root AGENTS.md from the current codebase."
