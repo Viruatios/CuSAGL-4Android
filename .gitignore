@@ -21,3 +21,5 @@ app/debug/
 OriginScripts/
 /OriginScripts/
 /CopilotDocs/
+AGENTS.md
+.agents/
