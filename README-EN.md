@@ -4,7 +4,7 @@
 
 The English version is a translation, and the actual meaning is based on the Chinese version.
 
-Android port of [CuSimpAutoGenshinLyre](https://github.com/Viruatios/CuSimpAutoGenshinLyre).
+An Android reimplementation of the functionality provided by [CuSimpAutoGenshinLyre](https://github.com/Viruatios/CuSimpAutoGenshinLyre).
 
 ---
 
@@ -61,7 +61,7 @@ The playback control panel can be dragged while idle, paused, or stopped. Its po
 
 ## Score Writing Guide
 
-The Android edition uses the keyboard-score format from the original JS script, and strictly validates scores during import and manual creation. Score files must be UTF-8 encoded JSON.
+The Android edition is compatible with the existing keyboard-score format and strictly validates scores during import and manual creation. Score files must be UTF-8 encoded JSON.
 
 ### Basic JSON Structure
 
@@ -158,9 +158,10 @@ This is one consecutive-key basic unit. It contains the chord `(QW)`, the single
 
 ---
 
-## Third-Party Content Notice
+## Third-Party Content and Implementation Origin
 
 - The app icon comes from the "Windsong Lyre" in Genshin Impact, designed by HoYoverse, with copyright owned by HoYoverse. This icon is used only for demonstration and testing purposes in this project and is not used for any commercial purpose.
-- This project was ported and rewritten from CuSimpAutoGenshinLyre. The original project was a JS script running on BetterGI, and its development referenced AutoYuanQin by @提瓦特钓鱼玳师 and @半江残秋. After the code port was completed, the original JS script project was removed from this project.
+- The predecessor of this project, CuSimpAutoGenshinLyre, was a JavaScript automation script that ran on BetterGI. During its early development, the original JS script referenced AutoYuanQin by @提瓦特钓鱼玳师 and @半江残秋. As its feature requirements grew and its playback rules were refined, it gradually developed independently into CuSimpAutoGenshinLyre.
+- In this project's early documentation, the word "port" means that the Android edition is a complete cross-platform reimplementation based on the functionality, data formats, and playback rules of CuSimpAutoGenshinLyre, built with Kotlin, Compose, and native Android APIs. The Android application architecture, UI, permission handling, accessibility-based touch injection, and overlay controls are all new implementations, while the core score parsing, timeline preprocessing, and playback scheduling preserve the behavioral rules and algorithmic ideas of the original project. No original JS source files were directly copied.
 
 ---
